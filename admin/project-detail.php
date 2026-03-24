@@ -17,6 +17,10 @@ if (!$project) { header('Location: /admin/projects.php'); exit; }
 
 $success = $error = '';
 
+if (isset($_GET['invoice_sent'])) {
+    $success = 'Factuur succesvol verstuurd naar de klant. Projectstatus is bijgewerkt naar "Factuur gestuurd".';
+}
+
 // Update status + preview_url
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_project'])) {
     $newStatus = $_POST['status'] ?? $project['status'];
@@ -47,6 +51,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_employee'])) {
         $stmt3 = $db->prepare('INSERT IGNORE INTO project_employees (project_id, user_id) VALUES (?, ?)');
         $stmt3->execute([$projectId, $empId]);
         $success = 'Medewerker toegevoegd.';
+    }
+}
+
+// Send download email
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_download_email'])) {
+    $toEmail     = trim($_POST['to_email'] ?? $project['client_email'] ?? '');
+    $downloadUrl = trim($_POST['download_url'] ?? '');
+
+    if (!$toEmail || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Ongeldig e-mailadres.';
+    } elseif (!$downloadUrl) {
+        $error = 'Voer een download link in of selecteer een bestand.';
+    } else {
+        $htmlBody = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f9f9f9;padding:20px;">
+<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+  <div style="background:linear-gradient(135deg,#6C63FF,#00D4FF);padding:32px;text-align:center;">
+    <h1 style="color:#fff;margin:0;font-size:1.8rem;">WebSiteVoorJou</h1>
+    <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Jouw website, razendsnel live</p>
+  </div>
+  <div style="padding:32px;">
+    <h2 style="color:#111;font-size:1.3rem;margin-bottom:16px;">&#127881; Je website staat klaar om te downloaden!</h2>
+    <p style="color:#444;line-height:1.6;">Goed nieuws! Je website is klaar en kan worden gedownload. Klik op de knop hieronder om je website te downloaden.</p>
+
+    <div style="text-align:center;margin:32px 0;">
+      <a href="' . htmlspecialchars($downloadUrl) . '" style="display:inline-block;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#fff;text-decoration:none;padding:16px 40px;border-radius:8px;font-weight:700;font-size:1.05rem;">
+        &#11015; Website downloaden
+      </a>
+    </div>
+
+    <div style="background:#f4f4f8;border-radius:8px;padding:16px;margin-bottom:24px;">
+      <p style="margin:0;font-size:0.85rem;color:#666;">
+        <strong>Project:</strong> ' . htmlspecialchars($project['name']) . '<br>
+        <strong>Download link:</strong> <a href="' . htmlspecialchars($downloadUrl) . '" style="color:#6C63FF;">' . htmlspecialchars($downloadUrl) . '</a>
+      </p>
+    </div>
+
+    <p style="color:#444;font-size:0.9rem;line-height:1.6;">Heb je hulp nodig bij het installeren of online plaatsen van je website? Neem dan contact met ons op — we helpen je graag verder.</p>
+    <p style="color:#888;font-size:0.85rem;">Vragen? Stuur een e-mail naar <a href="mailto:' . MAIL_FROM . '" style="color:#6C63FF;">' . MAIL_FROM . '</a>.</p>
+  </div>
+  <div style="background:#f9f9f9;padding:16px 32px;text-align:center;border-top:1px solid #eee;">
+    <p style="font-size:0.8rem;color:#999;margin:0;">WebSiteVoorJou &bull; ' . MAIL_FROM . ' &bull; websitevoorjou.nl</p>
+  </div>
+</div>
+</body></html>';
+
+        if (sendMail($toEmail, 'Je website staat klaar om te downloaden! — WebSiteVoorJou', $htmlBody, $project['client_name'])) {
+            $success = 'Download e-mail verstuurd naar ' . $toEmail . '!';
+        } else {
+            $error = 'Versturen mislukt. Controleer de mailconfiguratie.';
+        }
     }
 }
 
@@ -120,13 +175,98 @@ $currentIdx = array_search($project['status'], $statusList);
           <?php if ($tokenRow): ?>
             <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-outline btn-sm">&#128065; Preview bekijken</a>
           <?php endif; ?>
-          <?php if ($project['status'] === 'afgerond' && !$invoice): ?>
+          <?php if ($invoice): ?>
+            <a href="/admin/invoice.php?id=<?= $invoice['id'] ?>" class="btn btn-primary btn-sm">&#128195; Factuur <?= $invoice['status'] === 'concept' ? 'versturen' : 'bekijken' ?></a>
+          <?php elseif ($project['status'] === 'afgerond'): ?>
             <a href="/admin/invoice.php?project_id=<?= $projectId ?>" class="btn btn-primary btn-sm">&#128195; Factuur aanmaken</a>
           <?php endif; ?>
           <a href="/admin/send-preview.php?project_id=<?= $projectId ?>" class="btn btn-outline btn-sm">&#128231; Preview mailen</a>
         </div>
       </div>
     </div>
+
+    <!-- Factuur actie banner -->
+    <?php if ($invoice && $invoice['status'] === 'concept'): ?>
+    <div class="card" style="margin-bottom:24px;border-color:var(--primary);background:rgba(108,99,255,0.05);">
+      <div style="display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+        <div>
+          <h3 style="margin-bottom:4px;">&#128195; Factuur klaar om te versturen</h3>
+          <p>
+            Factuurnummer <strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong> &bull;
+            Bedrag <strong>&euro;<?= number_format($invoice['amount'], 2, ',', '.') ?></strong> (excl. BTW) &bull;
+            Klant: <strong><?= htmlspecialchars($project['client_email']) ?></strong>
+          </p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">
+          <a href="/admin/invoice.php?id=<?= $invoice['id'] ?>" class="btn btn-outline btn-sm">Factuur bewerken</a>
+          <form method="post" action="/admin/invoice.php?id=<?= $invoice['id'] ?>" style="margin:0;">
+            <input type="hidden" name="send_invoice_email" value="1">
+            <input type="hidden" name="to_email" value="<?= htmlspecialchars($project['client_email']) ?>">
+            <button type="submit" class="btn btn-primary btn-sm" data-confirm="Factuur mailen naar <?= htmlspecialchars($project['client_email']) ?>?">
+              &#128231; Verstuur factuur naar klant
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Download e-mail banner -->
+    <?php
+      preg_match('/\[GO-LIVE VERZOEK: ([^\]]+)\]/', $project['description'] ?? '', $goLiveMatch);
+      $goLiveChoice = $goLiveMatch[1] ?? null;
+      $wantsDownload = $goLiveChoice === 'Website downloaden';
+      $isPaid = $project['status'] === 'factuur_betaald';
+
+      // Uploadede bestanden als download optie
+      $zipFiles = array_filter($files, fn($f) => str_ends_with(strtolower($f['filename']), '.zip'));
+    ?>
+    <?php if ($isPaid && $wantsDownload): ?>
+    <div class="card" style="margin-bottom:24px;border-color:var(--success);background:rgba(0,230,118,0.04);">
+      <h3 style="margin-bottom:4px;">&#11015; Klant wil website downloaden</h3>
+      <p style="margin-bottom:16px;">Betaling is ontvangen. Stuur de klant een e-mail met de download link.</p>
+      <form method="post">
+        <input type="hidden" name="send_download_email" value="1">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">E-mailadres klant</label>
+            <input type="email" name="to_email" class="form-control" value="<?= htmlspecialchars($project['client_email']) ?>" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Download link</label>
+            <?php if (!empty($zipFiles)): ?>
+              <select name="download_url" class="form-control">
+                <option value="">— Kies een geüpload bestand —</option>
+                <?php foreach ($zipFiles as $zf): ?>
+                  <option value="<?= htmlspecialchars(APP_URL . '/uploads/' . $zf['filename']) ?>">
+                    <?= htmlspecialchars($zf['original_name']) ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+              <p class="form-hint">Of typ een handmatige URL hieronder:</p>
+              <input type="url" name="download_url" class="form-control" style="margin-top:6px;" placeholder="https://...">
+            <?php else: ?>
+              <input type="url" name="download_url" class="form-control" placeholder="https://..." required>
+              <p class="form-hint">Upload eerst een ZIP-bestand bij de bestanden, of voer een externe link in.</p>
+            <?php endif; ?>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" data-confirm="Download e-mail versturen naar <?= htmlspecialchars($project['client_email']) ?>?">
+          &#128231; Verstuur download link naar klant
+        </button>
+      </form>
+    </div>
+    <?php elseif ($isPaid && $goLiveChoice === 'Samen online plaatsen'): ?>
+    <div class="alert alert-info" style="margin-bottom:24px;">
+      &#128222; Betaling ontvangen. Klant wil <strong>samen online plaatsen</strong> — neem contact op via
+      <a href="mailto:<?= htmlspecialchars($project['client_email']) ?>"><?= htmlspecialchars($project['client_email']) ?></a>
+      <?php
+        $clientPhone = $db->prepare('SELECT phone FROM clients WHERE id = ?');
+        $clientPhone->execute([$project['client_id']]);
+        $phone = $clientPhone->fetchColumn();
+        if ($phone): ?> of <a href="tel:<?= htmlspecialchars($phone) ?>"><?= htmlspecialchars($phone) ?></a><?php endif; ?>.
+    </div>
+    <?php endif; ?>
 
     <!-- Status timeline -->
     <div class="card" style="margin-bottom:24px;">

@@ -29,6 +29,43 @@ if (!$project) {
 $error   = '';
 $success = '';
 
+// Handle preview approval
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_preview'])) {
+    if (in_array($project['status'], ['preview_beschikbaar', 'afgerond'])) {
+        $db->prepare("UPDATE projects SET status = 'afgerond' WHERE id = ? AND client_id = ?")
+           ->execute([$projectId, $client['id']]);
+
+        // Auto-create invoice if none exists yet
+        $existingInv = $db->prepare('SELECT id FROM invoices WHERE project_id = ?');
+        $existingInv->execute([$projectId]);
+        if (!$existingInv->fetch()) {
+            $packagePrices = ['brons' => 0, 'zilver' => 999, 'goud' => 2999, 'platinum' => 0];
+            $amount = $packagePrices[$project['package']] ?? 0;
+            $number = nextInvoiceNumber();
+            $desc   = 'Websiteontwikkeling pakket ' . ucfirst($project['package']) . ' — ' . $project['name'];
+            $due    = date('Y-m-d', strtotime('+30 days'));
+            $db->prepare('INSERT INTO invoices (project_id, invoice_number, amount, description, due_date) VALUES (?, ?, ?, ?, ?)')
+               ->execute([$projectId, $number, $amount, $desc, $due]);
+        }
+
+        $success = 'Preview goedgekeurd! We sturen je binnenkort een factuur.';
+        $stmt->execute([$projectId, $client['id']]);
+        $project = $stmt->fetch();
+    }
+}
+
+// Handle go-live request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_go_live'])) {
+    $preference = $_POST['go_live_preference'] ?? 'together';
+    $db->prepare("UPDATE projects SET description = CONCAT(COALESCE(description,''), '\n\n[GO-LIVE VERZOEK: ', ?, ']') WHERE id = ? AND client_id = ?")
+       ->execute([$preference === 'together' ? 'Samen online plaatsen' : 'Website downloaden', $projectId, $client['id']]);
+    $success = $preference === 'together'
+        ? 'We nemen zo snel mogelijk contact met je op om de website online te plaatsen!'
+        : 'Je download wordt klaargezet. Je ontvangt een bericht zodra het beschikbaar is.';
+    $stmt->execute([$projectId, $client['id']]);
+    $project = $stmt->fetch();
+}
+
 // Handle project update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_project'])) {
     $newName = trim($_POST['name'] ?? '');
@@ -109,6 +146,7 @@ $currentIdx = array_search($project['status'], $statusList);
     <ul class="sidebar-nav">
       <li><a href="/portal/dashboard.php"><span class="nav-icon">&#127968;</span> Dashboard</a></li>
       <li><a href="/portal/new-project.php"><span class="nav-icon">&#43;</span> Nieuw project</a></li>
+      <li><a href="/portal/profile.php"><span class="nav-icon">&#128100;</span> Mijn profiel</a></li>
     </ul>
     <div class="sidebar-footer">
       <div class="sidebar-user">
@@ -245,6 +283,104 @@ $currentIdx = array_search($project['status'], $statusList);
           </div>
         <?php endforeach; ?>
       </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Preview goedkeuren -->
+    <?php if ($project['status'] === 'preview_beschikbaar' || $project['status'] === 'afgerond'):
+        $hasInvoice = $db->prepare('SELECT id FROM invoices WHERE project_id = ?');
+        $hasInvoice->execute([$projectId]);
+        $hasInvoice = (bool)$hasInvoice->fetch();
+    ?>
+    <?php if ($project['status'] === 'preview_beschikbaar'): ?>
+    <div class="card" style="margin-top:24px;border-color:var(--primary);">
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+          <h3 style="margin-bottom:6px;">&#127775; Je preview staat klaar!</h3>
+          <p>Bekijk je website en keur hem goed als je tevreden bent. Na goedkeuring maken wij een factuur aan.</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0;">
+          <?php if ($tokenRow): ?>
+            <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-outline">&#128065; Preview bekijken</a>
+          <?php endif; ?>
+          <form method="post" style="margin:0;">
+            <input type="hidden" name="approve_preview" value="1">
+            <button type="submit" class="btn btn-primary" data-confirm="Weet je zeker dat je de preview goedkeurt? We sturen daarna een factuur.">&#10003; Preview goedkeuren</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <?php elseif ($project['status'] === 'afgerond' && !$hasInvoice): ?>
+    <div class="card" style="margin-top:24px;border-color:var(--warning);">
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+          <h3 style="margin-bottom:6px;">&#9203; Wachten op factuur</h3>
+          <p>Je hebt de preview goedgekeurd. We zijn je factuur aan het opmaken — dat duurt niet lang meer.</p>
+          <p style="margin-top:8px;font-size:0.85rem;">Heb je de preview toch nog niet goed bekeken of wil je de goedkeuring opnieuw bevestigen?</p>
+        </div>
+        <form method="post" style="margin:0;flex-shrink:0;">
+          <input type="hidden" name="approve_preview" value="1">
+          <button type="submit" class="btn btn-outline btn-sm">&#8635; Goedkeuring opnieuw bevestigen</button>
+        </form>
+      </div>
+    </div>
+    <?php endif; ?>
+    <?php endif; ?>
+
+    <!-- Go-live opties na betaling -->
+    <?php if (in_array($project['status'], ['afgerond', 'factuur_gestuurd', 'factuur_betaald'])):
+        preg_match('/\[GO-LIVE VERZOEK: ([^\]]+)\]/', $project['description'] ?? '', $goLiveMatch);
+        $previousChoice = $goLiveMatch[1] ?? null;
+        $isTogether = $previousChoice === 'Samen online plaatsen';
+        $isDownload = $previousChoice === 'Website downloaden';
+    ?>
+    <div class="card" style="margin-top:24px;border-color:var(--success);">
+      <?php if ($previousChoice): ?>
+        <!-- Eerder gemaakte keuze tonen -->
+        <div style="display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+          <div>
+            <h3 style="margin-bottom:4px;">&#10003; Keuze bevestigd</h3>
+            <p>Je hebt gekozen voor: <strong><?= htmlspecialchars($previousChoice) ?></strong><?= $isTogether ? ' — we nemen binnenkort contact op.' : ' — de bestanden worden klaargezet.' ?></p>
+          </div>
+          <button onclick="document.getElementById('go-live-form').style.display='block';this.style.display='none';" class="btn btn-outline btn-sm">&#9998; Keuze wijzigen</button>
+        </div>
+        <div id="go-live-form" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid var(--border);">
+      <?php else: ?>
+        <h3 style="margin-bottom:6px;">
+          <?php if ($project['status'] === 'factuur_betaald'): ?>&#127881; Betaling ontvangen — wat wil je nu doen?
+          <?php elseif ($project['status'] === 'factuur_gestuurd'): ?>&#128195; Factuur ontvangen — geef je voorkeur door
+          <?php else: ?>&#128640; Bijna klaar — hoe wil je de website ontvangen?
+          <?php endif; ?>
+        </h3>
+        <p style="margin-bottom:20px;">
+          <?php if ($project['status'] === 'factuur_betaald'): ?>Je website is klaar! Kies hoe je verder wilt gaan.
+          <?php elseif ($project['status'] === 'factuur_gestuurd'): ?>Geef alvast aan hoe je de website wilt ontvangen zodra de betaling is verwerkt.
+          <?php else: ?>Je preview is goedgekeurd! Geef alvast aan hoe je de website wilt ontvangen.
+          <?php endif; ?>
+        </p>
+        <div id="go-live-form">
+      <?php endif; ?>
+          <form method="post">
+            <div class="grid-2" style="margin-bottom:20px;">
+              <label style="display:flex;gap:12px;align-items:flex-start;padding:16px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;">
+                <input type="radio" name="go_live_preference" value="together" <?= (!$previousChoice || $isTogether) ? 'checked' : '' ?> style="margin-top:3px;flex-shrink:0;">
+                <div>
+                  <strong>Samen online plaatsen</strong>
+                  <p style="font-size:0.85rem;margin-top:4px;">Wij nemen contact op via je e-mail of telefoonnummer om samen de website live te zetten.</p>
+                </div>
+              </label>
+              <label style="display:flex;gap:12px;align-items:flex-start;padding:16px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;">
+                <input type="radio" name="go_live_preference" value="download" <?= $isDownload ? 'checked' : '' ?> style="margin-top:3px;flex-shrink:0;">
+                <div>
+                  <strong>Website downloaden</strong>
+                  <p style="font-size:0.85rem;margin-top:4px;">We zetten de bestanden klaar zodat je zelf de website kunt plaatsen.</p>
+                </div>
+              </label>
+            </div>
+            <input type="hidden" name="request_go_live" value="1">
+            <button type="submit" class="btn btn-primary">Bevestigen &#8594;</button>
+          </form>
+        </div>
     </div>
     <?php endif; ?>
 

@@ -31,6 +31,77 @@ if (!$project) { header('Location: /admin/projects.php'); exit; }
 
 $success = $error = '';
 
+// Send invoice email
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice_email']) && $invoice) {
+    $toEmail = trim($_POST['to_email'] ?? $project['client_email'] ?? '');
+    if (!$toEmail || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Ongeldig e-mailadres.';
+    } else {
+        $amountInclBtw = number_format($invoice['amount'] * 1.21, 2, ',', '.');
+        $amountExcl    = number_format($invoice['amount'], 2, ',', '.');
+        $dueDate       = $invoice['due_date'] ? date('d-m-Y', strtotime($invoice['due_date'])) : date('d-m-Y', strtotime('+30 days'));
+
+        $htmlBody = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f9f9f9;padding:20px;">
+<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+  <div style="background:linear-gradient(135deg,#6C63FF,#00D4FF);padding:32px;text-align:center;">
+    <h1 style="color:#fff;margin:0;font-size:1.8rem;">WebSiteVoorJou</h1>
+    <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Jouw website, razendsnel live</p>
+  </div>
+  <div style="padding:32px;">
+    <h2 style="color:#111;font-size:1.3rem;margin-bottom:16px;">Factuur voor ' . htmlspecialchars($project['name']) . '</h2>
+    <p style="color:#444;line-height:1.6;">Hartelijk dank voor je vertrouwen in WebSiteVoorJou! Bijgaand ontvang je de factuur voor je website.</p>
+
+    <div style="background:#f4f4f8;border-radius:8px;padding:20px;margin:24px 0;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:6px 0;color:#666;font-size:0.9rem;">Factuurnummer</td><td style="text-align:right;font-weight:700;">' . htmlspecialchars($invoice['invoice_number']) . '</td></tr>
+        <tr><td style="padding:6px 0;color:#666;font-size:0.9rem;">Omschrijving</td><td style="text-align:right;">' . htmlspecialchars($invoice['description']) . '</td></tr>
+        <tr><td style="padding:6px 0;color:#666;font-size:0.9rem;">Bedrag excl. BTW</td><td style="text-align:right;">&euro;' . $amountExcl . '</td></tr>
+        <tr><td style="padding:6px 0;color:#666;font-size:0.9rem;">BTW (21%)</td><td style="text-align:right;">&euro;' . number_format($invoice['amount'] * 0.21, 2, ',', '.') . '</td></tr>
+        <tr style="border-top:2px solid #ddd;"><td style="padding:10px 0 6px;font-weight:700;">Totaal incl. BTW</td><td style="text-align:right;font-weight:700;font-size:1.1rem;color:#6C63FF;">&euro;' . $amountInclBtw . '</td></tr>
+        <tr><td style="padding:6px 0;color:#666;font-size:0.9rem;">Betalen voor</td><td style="text-align:right;">' . $dueDate . '</td></tr>
+      </table>
+    </div>
+
+    <p style="color:#444;font-size:0.95rem;line-height:1.7;">Gelieve het bedrag van <strong>&euro;' . $amountInclBtw . '</strong> vóór <strong>' . $dueDate . '</strong> over te maken op:<br>
+    IBAN: <strong>NL00 BANK 0000 0000 00</strong> t.n.v. WebSiteVoorJou<br>
+    O.v.v. factuurnummer: <strong>' . htmlspecialchars($invoice['invoice_number']) . '</strong></p>
+
+    <div style="background:linear-gradient(135deg,rgba(108,99,255,0.08),rgba(0,212,255,0.08));border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:20px;margin:24px 0;">
+      <h3 style="color:#111;font-size:1rem;margin:0 0 12px;">&#127881; Wat gebeurt er na betaling?</h3>
+      <p style="color:#444;font-size:0.9rem;line-height:1.7;margin:0;">
+        Na ontvangst van je betaling kun je inloggen op je account via <a href="' . APP_URL . '/login.php" style="color:#6C63FF;">' . APP_URL . '/login.php</a> en je project goedkeuren.<br><br>
+        Daarna heb je twee opties:<br>
+        &bull; <strong>Samen online plaatsen</strong> — wij nemen contact op via je e-mail of telefoonnummer om samen de website live te zetten.<br>
+        &bull; <strong>Zelf plaatsen</strong> — we zetten de bestanden klaar zodat je de website zelf kunt uploaden.<br><br>
+        Kies je voorkeur na inloggen via je projectpagina.
+      </p>
+    </div>
+
+    <div style="text-align:center;margin:28px 0;">
+      <a href="' . APP_URL . '/login.php" style="display:inline-block;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#fff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:1rem;">Inloggen op mijn account &rarr;</a>
+    </div>
+
+    <p style="color:#888;font-size:0.85rem;">Vragen over de factuur? Stuur een e-mail naar <a href="mailto:' . MAIL_FROM . '" style="color:#6C63FF;">' . MAIL_FROM . '</a>.</p>
+  </div>
+  <div style="background:#f9f9f9;padding:16px 32px;text-align:center;border-top:1px solid #eee;">
+    <p style="font-size:0.8rem;color:#999;margin:0;">WebSiteVoorJou &bull; ' . MAIL_FROM . ' &bull; websitevoorjou.nl</p>
+  </div>
+</div>
+</body></html>';
+
+        if (sendMail($toEmail, 'Factuur ' . $invoice['invoice_number'] . ' — WebSiteVoorJou', $htmlBody, $project['client_name'])) {
+            $db->prepare("UPDATE invoices SET status = 'verstuurd' WHERE id = ?")->execute([$invoice['id']]);
+            $db->prepare("UPDATE projects SET status = 'factuur_gestuurd' WHERE id = ?")->execute([$projectId]);
+            // Redirect terug naar project met melding
+            header('Location: /admin/project-detail.php?id=' . $projectId . '&invoice_sent=1');
+            exit;
+        } else {
+            $error = 'Versturen mislukt. Controleer de mailconfiguratie.';
+        }
+    }
+}
+
 // Update invoice status
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status']) && $invoice) {
     $newStatus = $_POST['invoice_status'] ?? $invoice['status'];
@@ -101,7 +172,9 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
           <h1 style="margin-top:4px;">Factuur — <?= htmlspecialchars($project['name']) ?></h1>
         </div>
         <?php if ($invoice): ?>
-          <button onclick="window.print()" class="btn btn-outline">&#128424; Afdrukken</button>
+          <div style="display:flex;gap:8px;">
+            <button onclick="window.print()" class="btn btn-outline">&#128424; Afdrukken</button>
+          </div>
         <?php endif; ?>
       </div>
     </div>
@@ -129,6 +202,22 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
       </form>
     </div>
     <?php else: ?>
+
+    <!-- Stuur factuur per e-mail -->
+    <div class="card" style="max-width:560px;margin-bottom:24px;border-color:var(--primary);">
+      <div class="card-header"><h3 class="card-title">&#128231; Factuur per e-mail versturen</h3></div>
+      <form method="post">
+        <input type="hidden" name="send_invoice_email" value="1">
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <div class="form-group flex-1" style="margin-bottom:0;">
+            <label class="form-label">E-mailadres klant</label>
+            <input type="email" name="to_email" class="form-control" value="<?= htmlspecialchars($project['client_email'] ?? '') ?>" required placeholder="klant@bedrijf.nl">
+          </div>
+          <button type="submit" class="btn btn-primary">Versturen</button>
+        </div>
+        <p class="form-hint" style="margin-top:8px;">De e-mail bevat de factuurdetails en legt uit hoe de klant kan inloggen, goedkeuren en de website online kan plaatsen.</p>
+      </form>
+    </div>
 
     <!-- Status update -->
     <div class="card" style="max-width:400px;margin-bottom:24px;">

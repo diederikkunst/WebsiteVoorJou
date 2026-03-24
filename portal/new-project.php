@@ -52,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <ul class="sidebar-nav">
       <li><a href="/portal/dashboard.php"><span class="nav-icon">&#127968;</span> Dashboard</a></li>
       <li><a href="/portal/new-project.php" class="active"><span class="nav-icon">&#43;</span> Nieuw project</a></li>
+      <li><a href="/portal/profile.php"><span class="nav-icon">&#128100;</span> Mijn profiel</a></li>
     </ul>
     <div class="sidebar-footer">
       <div class="sidebar-user">
