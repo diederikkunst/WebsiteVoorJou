@@ -57,8 +57,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_preview'])) {
 // Handle go-live request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['request_go_live'])) {
     $preference = $_POST['go_live_preference'] ?? 'together';
-    $db->prepare("UPDATE projects SET description = CONCAT(COALESCE(description,''), '\n\n[GO-LIVE VERZOEK: ', ?, ']') WHERE id = ? AND client_id = ?")
-       ->execute([$preference === 'together' ? 'Samen online plaatsen' : 'Website downloaden', $projectId, $client['id']]);
+    $label      = $preference === 'together' ? 'Samen online plaatsen' : 'Website downloaden';
+
+    // Reload fresh description
+    $descStmt = $db->prepare('SELECT description FROM projects WHERE id = ? AND client_id = ?');
+    $descStmt->execute([$projectId, $client['id']]);
+    $currentDesc = $descStmt->fetchColumn() ?? '';
+
+    // Replace existing keuze or append new one
+    if (preg_match('/\[GO-LIVE VERZOEK: [^\]]+\]/', $currentDesc)) {
+        $newDesc = preg_replace('/\[GO-LIVE VERZOEK: [^\]]+\]/', '[GO-LIVE VERZOEK: ' . $label . ']', $currentDesc);
+    } else {
+        $newDesc = $currentDesc . "\n\n[GO-LIVE VERZOEK: " . $label . "]";
+    }
+
+    $db->prepare('UPDATE projects SET description = ? WHERE id = ? AND client_id = ?')
+       ->execute([$newDesc, $projectId, $client['id']]);
+
     $success = $preference === 'together'
         ? 'We nemen zo snel mogelijk contact met je op om de website online te plaatsen!'
         : 'Je download wordt klaargezet. Je ontvangt een bericht zodra het beschikbaar is.';
