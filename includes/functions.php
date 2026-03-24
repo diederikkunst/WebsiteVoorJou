@@ -100,24 +100,107 @@ function saveUpload(array $file, string $subdir): ?string {
 }
 
 function sendMail(string $to, string $subject, string $htmlBody, string $toName = ''): bool {
-    $headers  = "MIME-Version: 1.0\r\n";
-    $headers .= "Content-type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: " . MAIL_FROM_NAME . " <" . MAIL_FROM . ">\r\n";
-    $headers .= "Reply-To: " . MAIL_FROM . "\r\n";
-    return mail($to, $subject, $htmlBody, $headers);
+    $host = MAIL_SMTP_HOST;
+    $port = MAIL_SMTP_PORT;
+    $user = MAIL_SMTP_USER;
+    $pass = MAIL_SMTP_PASS;
+    $from = MAIL_FROM;
+    $fromName = MAIL_FROM_NAME;
+
+    $boundary = md5(uniqid());
+    $toHeader = $toName ? '"' . $toName . '" <' . $to . '>' : $to;
+
+    $message  = "Date: " . date('r') . "\r\n";
+    $message .= "From: =?UTF-8?B?" . base64_encode($fromName) . "?= <{$from}>\r\n";
+    $message .= "To: {$toHeader}\r\n";
+    $message .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
+    $message .= "MIME-Version: 1.0\r\n";
+    $message .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $message .= "Content-Transfer-Encoding: base64\r\n";
+    $message .= "\r\n";
+    $message .= chunk_split(base64_encode($htmlBody));
+
+    try {
+        // Connect
+        $sock = fsockopen($host, $port, $errno, $errstr, 15);
+        if (!$sock) return false;
+
+        $read = function() use ($sock) {
+            $res = '';
+            while ($line = fgets($sock, 512)) {
+                $res .= $line;
+                if (substr($line, 3, 1) === ' ') break;
+            }
+            return $res;
+        };
+
+        $cmd = function(string $c) use ($sock, $read) {
+            fwrite($sock, $c . "\r\n");
+            return $read();
+        };
+
+        $read(); // 220 greeting
+
+        // EHLO
+        $resp = $cmd('EHLO ' . gethostname());
+
+        // STARTTLS on port 587
+        if ($port === 587) {
+            $cmd('STARTTLS');
+            stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+            $cmd('EHLO ' . gethostname());
+        }
+
+        // AUTH LOGIN
+        $cmd('AUTH LOGIN');
+        $cmd(base64_encode($user));
+        $resp = $cmd(base64_encode($pass));
+        if (strpos($resp, '235') === false) {
+            fclose($sock);
+            return false;
+        }
+
+        // Envelope
+        $cmd("MAIL FROM:<{$from}>");
+        $cmd("RCPT TO:<{$to}>");
+        $cmd('DATA');
+        fwrite($sock, $message . "\r\n.\r\n");
+        $resp = $read();
+        $cmd('QUIT');
+        fclose($sock);
+
+        return strpos($resp, '250') !== false;
+
+    } catch (\Throwable $e) {
+        return false;
+    }
 }
 
 function getScreenshot(string $url): ?string {
-    if (empty(SCREENSHOT_API_KEY)) return null;
-    $apiUrl = SCREENSHOT_API_URL . '?access_key=' . SCREENSHOT_API_KEY . '&url=' . urlencode($url) . '&format=jpg&viewport_width=1280&viewport_height=800';
+    $dir = UPLOAD_DIR . 'screenshots/';
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    $filename = 'screenshots/' . generateToken(16) . '.jpg';
+
+    if (!empty(SCREENSHOT_API_KEY)) {
+        // Betaalde provider: screenshotone.com
+        $apiUrl = SCREENSHOT_API_URL . '?access_key=' . SCREENSHOT_API_KEY . '&url=' . urlencode($url) . '&format=jpg&viewport_width=1280&viewport_height=800';
+    } else {
+        // Gratis provider: thum.io (geen API key nodig)
+        $apiUrl = 'https://image.thum.io/get/width/1280/crop/800/' . $url;
+    }
+
     $ch = curl_init($apiUrl);
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30]);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 30,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_USERAGENT      => 'WebSiteVoorJou/1.0',
+    ]);
     $data = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
-    if ($data && strlen($data) > 1000) {
-        $filename = 'screenshots/' . generateToken(16) . '.jpg';
-        $dir = UPLOAD_DIR . 'screenshots/';
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
+
+    if ($data && $httpCode === 200 && strlen($data) > 1000) {
         file_put_contents(UPLOAD_DIR . $filename, $data);
         return $filename;
     }

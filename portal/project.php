@@ -29,6 +29,23 @@ if (!$project) {
 $error   = '';
 $success = '';
 
+// Handle project update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_project'])) {
+    $newName = trim($_POST['name'] ?? '');
+    $newDesc = trim($_POST['description'] ?? '');
+
+    if (!$newName) {
+        $error = 'Projectnaam mag niet leeg zijn.';
+    } else {
+        $db->prepare('UPDATE projects SET name = ?, description = ? WHERE id = ? AND client_id = ?')
+           ->execute([$newName, $newDesc, $projectId, $client['id']]);
+        $success = 'Project bijgewerkt.';
+        // Reload
+        $stmt->execute([$projectId, $client['id']]);
+        $project = $stmt->fetch();
+    }
+}
+
 // Handle file upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_files'])) {
     $uploaded = 0;
@@ -152,24 +169,31 @@ $currentIdx = array_search($project['status'], $statusList);
     </div>
 
     <div class="grid-2">
-      <!-- Project info -->
+      <!-- Project info / edit -->
       <div class="card">
         <div class="card-header"><h3 class="card-title">Projectdetails</h3></div>
-        <div class="form-group">
-          <label class="form-label">Beschrijving</label>
-          <p><?= nl2br(htmlspecialchars($project['description'] ?: 'Geen beschrijving opgegeven.')) ?></p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Aangemaakt op</label>
-          <p><?= formatDateTime($project['created_at']) ?></p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Laatste update</label>
-          <p><?= formatDateTime($project['updated_at']) ?></p>
+        <form method="post">
+          <input type="hidden" name="update_project" value="1">
+          <div class="form-group">
+            <label class="form-label">Projectnaam</label>
+            <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($project['name']) ?>" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Beschrijving</label>
+            <textarea name="description" class="form-control" rows="6" placeholder="Beschrijf je wensen, doelgroep, stijl, aanpassingen..."><?= htmlspecialchars($project['description'] ?? '') ?></textarea>
+            <p class="form-hint">Vertel ons alles wat je wil aanpassen of doorgeven. We lezen het direct.</p>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Opslaan</button>
+        </form>
+        <div class="divider"></div>
+        <div style="font-size:0.85rem;color:var(--text-muted);">
+          Aangemaakt: <?= formatDateTime($project['created_at']) ?><br>
+          Laatste update: <?= formatDateTime($project['updated_at']) ?>
         </div>
         <?php if ($project['preview_url'] && $project['status'] !== 'nieuw'): ?>
-        <div class="form-group">
-          <label class="form-label">Preview URL</label>
+        <div class="divider"></div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Preview</label>
           <?php if ($tokenRow): ?>
             <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-sm btn-outline">&#128065; Preview bekijken</a>
           <?php else: ?>

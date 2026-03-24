@@ -170,11 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
               </div>
             </div>
           <?php endif; ?>
-          <?php if (SCREENSHOT_API_KEY): ?>
-            <p class="form-hint" style="margin-bottom:16px;">&#128247; Er wordt automatisch een screenshot gemaakt en toegevoegd aan de e-mail.</p>
-          <?php else: ?>
-            <div class="alert alert-info">&#8505; Screenshot-functie is uitgeschakeld. Configureer <code>SCREENSHOT_API_KEY</code> in config.php om automatisch screenshots toe te voegen.</div>
-          <?php endif; ?>
+          <p class="form-hint" style="margin-bottom:16px;">&#128247; Er wordt automatisch een screenshot van de preview toegevoegd aan de e-mail.</p>
           <button type="submit" class="btn btn-primary" <?= !$project['preview_url'] ? 'disabled' : '' ?>>&#128231; E-mail versturen</button>
         </form>
       </div>
