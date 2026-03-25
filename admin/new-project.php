@@ -18,6 +18,14 @@ if ($preselectedClientId) {
     $prefillClient = $stmt->fetch() ?: null;
 }
 
+// Laad contactaanvraag voor pre-fill beschrijving
+$prefillContact = null;
+if (!empty($_GET['from_contact'])) {
+    $stmt = $db->prepare('SELECT * FROM contact_requests WHERE id = ?');
+    $stmt->execute([(int)$_GET['from_contact']]);
+    $prefillContact = $stmt->fetch() ?: null;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $clientId   = (int)($_POST['client_id'] ?? 0);
     $name       = trim($_POST['name'] ?? '');
@@ -130,7 +138,23 @@ $clients = $db->query("SELECT id, name, type FROM clients ORDER BY name ASC")->f
 
         <div class="form-group">
           <label class="form-label">Beschrijving</label>
-          <textarea name="description" class="form-control" rows="4" placeholder="Wat wil de klant? Welke wensen zijn er doorgegeven?"><?= htmlspecialchars($_POST['description'] ?? ($prefillClient['notes'] ?? '')) ?></textarea>
+          <?php
+            $prefillDesc = $_POST['description'] ?? null;
+            if ($prefillDesc === null) {
+                if ($prefillContact) {
+                    // Vanuit contactaanvraag: alleen aanvraaggegevens overnemen
+                    $parts = ['Aanvraag van ' . $prefillContact['name'] . ":\n" . $prefillContact['message']];
+                    if (!empty($prefillContact['current_website'])) {
+                        $parts[] = 'Huidige website: ' . $prefillContact['current_website'];
+                    }
+                    $prefillDesc = implode("\n\n", $parts);
+                } else {
+                    // Normaal nieuw project: notities van de lead overnemen
+                    $prefillDesc = $prefillClient['notes'] ?? '';
+                }
+            }
+          ?>
+          <textarea name="description" class="form-control" rows="4" placeholder="Wat wil de klant? Welke wensen zijn er doorgegeven?"><?= htmlspecialchars($prefillDesc) ?></textarea>
         </div>
 
         <div class="form-row">
@@ -156,7 +180,7 @@ $clients = $db->query("SELECT id, name, type FROM clients ORDER BY name ASC")->f
         <div class="form-group">
           <label class="form-label">Preview URL (optioneel)</label>
           <input type="url" name="preview_url" class="form-control" placeholder="https://klant.websitevoorjou.nl"
-            value="<?= htmlspecialchars($_POST['preview_url'] ?? ($prefillClient['website'] ?? '')) ?>">
+            value="<?= htmlspecialchars($_POST['preview_url'] ?? ($prefillContact ? $prefillContact['current_website'] : $prefillClient['website'] ?? '') ?? '') ?>">
           <p class="form-hint">Stel status in op "Preview beschikbaar" om automatisch een preview-token aan te maken.</p>
         </div>
 

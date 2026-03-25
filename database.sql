@@ -94,6 +94,8 @@ CREATE TABLE contact_requests (
     current_website VARCHAR(255),
     logo VARCHAR(255),
     is_read TINYINT(1) DEFAULT 0,
+    status ENUM('nieuw','reactie_gestuurd') DEFAULT 'nieuw',
+    replied_at DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -7,6 +7,9 @@ requireAdminOrEmployee();
 $user = currentUser();
 $db   = getDB();
 
+$success = '';
+$error   = '';
+
 // Mark as read
 if (isset($_GET['mark_read'])) {
     $id = (int)$_GET['mark_read'];
@@ -21,15 +24,59 @@ if (isset($_GET['mark_all_read'])) {
     exit;
 }
 
-$filterRead = $_GET['read'] ?? '';
-$where      = [];
-$params     = [];
+// Stuur reactie
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
+    $id      = (int)$_POST['contact_id'];
+    $subject = trim($_POST['subject'] ?? '');
+    $body    = trim($_POST['reply_body'] ?? '');
+
+    $stmt = $db->prepare('SELECT * FROM contact_requests WHERE id = ?');
+    $stmt->execute([$id]);
+    $contact = $stmt->fetch();
+
+    if ($contact && $subject && $body) {
+        $html = '<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">'
+              . '<p>Beste ' . htmlspecialchars($contact['name']) . ',</p>'
+              . '<p style="white-space:pre-wrap;">' . nl2br(htmlspecialchars($body)) . '</p>'
+              . '<p style="margin-top:32px;color:#888;font-size:0.85rem;">Met vriendelijke groet,<br>Het team van WebsiteVoorJou</p>'
+              . '</div>';
+
+        if (sendMail($contact['email'], $subject, $html, $contact['name'])) {
+            $db->prepare('UPDATE contact_requests SET status = \'reactie_gestuurd\', is_read = 1, replied_at = NOW() WHERE id = ?')
+               ->execute([$id]);
+            $success = 'Reactie verstuurd naar ' . $contact['email'] . '.';
+        } else {
+            $error = 'Versturen mislukt. Controleer de mailconfiguratie.';
+        }
+    }
+}
+
+$filterRead   = $_GET['read'] ?? '';
+$filterStatus = $_GET['status'] ?? '';
+$where        = [];
+$params       = [];
 
 if ($filterRead === '0') { $where[] = 'is_read = 0'; }
 if ($filterRead === '1') { $where[] = 'is_read = 1'; }
+if ($filterStatus === 'reactie_gestuurd') { $where[] = "status = 'reactie_gestuurd'"; }
+if ($filterStatus === 'nieuw')            { $where[] = "status = 'nieuw'"; }
 
 $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 $contacts = $db->query("SELECT * FROM contact_requests $whereSQL ORDER BY created_at DESC")->fetchAll();
+
+// Bouw een map van email → client zodat we dubbelen kunnen herkennen
+$existingEmails = [];
+if ($contacts) {
+    $emails = array_unique(array_filter(array_column($contacts, 'email')));
+    if ($emails) {
+        $placeholders = implode(',', array_fill(0, count($emails), '?'));
+        $stmt = $db->prepare("SELECT id, name, email FROM clients WHERE email IN ($placeholders)");
+        $stmt->execute(array_values($emails));
+        foreach ($stmt->fetchAll() as $row) {
+            $existingEmails[strtolower($row['email'])] = $row;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="nl">
@@ -56,14 +103,25 @@ $contacts = $db->query("SELECT * FROM contact_requests $whereSQL ORDER BY create
       </div>
     </div>
 
+    <?php if ($success): ?><div class="alert alert-success">&#10003; <?= htmlspecialchars($success) ?></div><?php endif; ?>
+    <?php if ($error):   ?><div class="alert alert-danger">&#10007; <?= htmlspecialchars($error) ?></div><?php endif; ?>
+
     <!-- Filter -->
-    <form method="get" class="filter-bar">
+    <form method="get" class="filter-bar" style="display:flex;gap:16px;flex-wrap:wrap;">
       <div class="form-group">
-        <label class="form-label">Filter</label>
+        <label class="form-label">Gelezen</label>
         <select name="read" class="form-control" onchange="this.form.submit()">
-          <option value="">Alle aanvragen</option>
+          <option value="">Alle</option>
           <option value="0" <?= $filterRead === '0' ? 'selected' : '' ?>>Ongelezen</option>
           <option value="1" <?= $filterRead === '1' ? 'selected' : '' ?>>Gelezen</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select name="status" class="form-control" onchange="this.form.submit()">
+          <option value="">Alle statussen</option>
+          <option value="nieuw"            <?= $filterStatus === 'nieuw'            ? 'selected' : '' ?>>Nieuw</option>
+          <option value="reactie_gestuurd" <?= $filterStatus === 'reactie_gestuurd' ? 'selected' : '' ?>>Reactie gestuurd</option>
         </select>
       </div>
     </form>
@@ -86,6 +144,9 @@ $contacts = $db->query("SELECT * FROM contact_requests $whereSQL ORDER BY create
                     <?php if (!$c['is_read']): ?>
                       <span class="badge badge-new">Nieuw</span>
                     <?php endif; ?>
+                    <?php if (($c['status'] ?? '') === 'reactie_gestuurd'): ?>
+                      <span class="badge badge-done">Reactie gestuurd</span>
+                    <?php endif; ?>
                   </div>
                   <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">
                     <span><a href="mailto:<?= htmlspecialchars($c['email']) ?>"><?= htmlspecialchars($c['email']) ?></a></span>
@@ -106,9 +167,46 @@ $contacts = $db->query("SELECT * FROM contact_requests $whereSQL ORDER BY create
                   <?php if (!$c['is_read']): ?>
                     <a href="?mark_read=<?= $c['id'] ?>" class="btn btn-sm btn-outline">Als gelezen markeren</a>
                   <?php endif; ?>
-                  <a href="/admin/new-client.php?from_contact=<?= $c['id'] ?>" class="btn btn-sm btn-primary">Lead aanmaken</a>
-                  <a href="mailto:<?= htmlspecialchars($c['email']) ?>" class="btn btn-sm btn-outline">&#128231; Reageren</a>
+                  <?php $existing = $existingEmails[strtolower($c['email'])] ?? null; ?>
+                  <?php if ($existing): ?>
+                    <a href="javascript:void(0)"
+                       onclick="if(confirm('<?= htmlspecialchars(addslashes($existing['name'])) ?> bestaat al als lead/klant.\nWil je een nieuw project aanmaken voor deze lead?'))window.location.href='/admin/new-project.php?client_id=<?= $existing['id'] ?>&from_contact=<?= $c['id'] ?>'"
+                       class="btn btn-sm btn-outline" title="Bestaat al: <?= htmlspecialchars($existing['name']) ?>">
+                      Bestaande lead &#8594; project
+                    </a>
+                  <?php else: ?>
+                    <a href="/admin/new-client.php?from_contact=<?= $c['id'] ?>" class="btn btn-sm btn-primary">Lead aanmaken</a>
+                  <?php endif; ?>
+                  <button type="button" class="btn btn-sm btn-outline" onclick="toggleReply(<?= $c['id'] ?>)">&#128231; Reageren</button>
                 </div>
+              </div>
+
+              <!-- Reactieformulier -->
+              <div id="reply-<?= $c['id'] ?>" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+                <form method="post">
+                  <input type="hidden" name="send_reply" value="1">
+                  <input type="hidden" name="contact_id" value="<?= $c['id'] ?>">
+                  <div class="form-group">
+                    <label class="form-label">Onderwerp</label>
+                    <input type="text" name="subject" class="form-control"
+                      value="Re: Uw aanvraag via WebsiteVoorJou.nl">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Bericht</label>
+                    <textarea name="reply_body" class="form-control" rows="7">Beste <?= htmlspecialchars($c['name']) ?>,
+
+Bedankt voor uw aanvraag! We hebben uw bericht ontvangen en nemen zo snel mogelijk contact met u op.
+
+Heeft u vragen? Dan kunt u altijd contact opnemen via dit e-mailadres.
+
+Met vriendelijke groet,
+Het team van WebsiteVoorJou</textarea>
+                  </div>
+                  <div style="display:flex;gap:8px;">
+                    <button type="submit" class="btn btn-primary btn-sm">&#9993; Verstuur reactie</button>
+                    <button type="button" class="btn btn-outline btn-sm" onclick="toggleReply(<?= $c['id'] ?>)">Annuleren</button>
+                  </div>
+                </form>
               </div>
             </div>
           <?php endforeach; ?>
@@ -118,5 +216,11 @@ $contacts = $db->query("SELECT * FROM contact_requests $whereSQL ORDER BY create
   </main>
 </div>
 <script src="/assets/js/main.js"></script>
+<script>
+function toggleReply(id) {
+  var el = document.getElementById('reply-' + id);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
 </body>
 </html>
