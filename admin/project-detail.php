@@ -23,15 +23,22 @@ if (isset($_GET['invoice_sent'])) {
 
 // Update status + preview_url
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_project'])) {
-    $newStatus = $_POST['status'] ?? $project['status'];
+    $newStatus  = $_POST['status'] ?? $project['status'];
     $previewUrl = trim($_POST['preview_url'] ?? '');
-    $package   = $_POST['package'] ?? $project['package'];
+    $package    = $_POST['package'] ?? $project['package'];
 
     $validStatuses = array_keys(statusOptions());
     if (!in_array($newStatus, $validStatuses)) $newStatus = $project['status'];
 
-    $stmt2 = $db->prepare('UPDATE projects SET status = ?, preview_url = ?, package = ? WHERE id = ?');
-    $stmt2->execute([$newStatus, $previewUrl, $package, $projectId]);
+    $logo = $project['logo'];
+    if (!empty($_FILES['logo']['name'])) {
+        $newLogo = saveUpload($_FILES['logo'], 'logos');
+        if ($newLogo) $logo = $newLogo;
+    }
+
+    $stmt2 = $db->prepare('UPDATE projects SET status = ?, preview_url = ?, package = ?, logo = ? WHERE id = ?');
+    $stmt2->execute([$newStatus, $previewUrl, $package, $logo, $projectId]);
+    $project['logo'] = $logo;
     $success = 'Project bijgewerkt.';
 
     // If status changed to preview_beschikbaar, create token
@@ -291,7 +298,7 @@ $currentIdx = array_search($project['status'], $statusList);
       <!-- Edit project -->
       <div class="card">
         <div class="card-header"><h3 class="card-title">Project bewerken</h3></div>
-        <form method="post">
+        <form method="post" enctype="multipart/form-data">
           <input type="hidden" name="update_project" value="1">
           <div class="form-group">
             <label class="form-label">Status</label>
@@ -313,6 +320,19 @@ $currentIdx = array_search($project['status'], $statusList);
             <label class="form-label">Preview URL</label>
             <input type="url" name="preview_url" class="form-control" placeholder="https://klant.websitevoorjou.nl" value="<?= htmlspecialchars($project['preview_url'] ?? '') ?>">
             <p class="form-hint">Zet status op "Preview beschikbaar" om automatisch een preview-token aan te maken.</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Logo</label>
+            <?php if (!empty($project['logo'])): ?>
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                <img src="/uploads/<?= htmlspecialchars($project['logo']) ?>" alt="Logo"
+                  style="height:48px;max-width:140px;object-fit:contain;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;">
+              </div>
+            <?php endif; ?>
+            <input type="file" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp,.svg">
+            <?php if (!empty($project['logo'])): ?>
+              <p class="form-hint">Upload een nieuw bestand om het logo te vervangen.</p>
+            <?php endif; ?>
           </div>
           <?php if ($tokenRow): ?>
             <div class="form-group">

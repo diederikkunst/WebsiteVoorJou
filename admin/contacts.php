@@ -95,12 +95,18 @@ $contacts = $db->query("SELECT * FROM contact_requests $whereSQL ORDER BY create
                     <span><?= formatDateTime($c['created_at']) ?></span>
                   </div>
                   <p style="font-size:0.9rem;white-space:pre-wrap;"><?= htmlspecialchars($c['message']) ?></p>
+                  <?php if ($c['current_website']): ?>
+                    <p style="font-size:0.85rem;margin-top:6px;">&#127760; Huidige website: <a href="<?= htmlspecialchars($c['current_website']) ?>" target="_blank" rel="noopener"><?= htmlspecialchars($c['current_website']) ?></a></p>
+                  <?php endif; ?>
+                  <?php if ($c['logo']): ?>
+                    <div style="margin-top:8px;"><img src="/uploads/<?= htmlspecialchars($c['logo']) ?>" alt="Logo" style="max-height:60px;max-width:180px;border-radius:4px;border:1px solid var(--border);padding:4px;background:#fff;"></div>
+                  <?php endif; ?>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
                   <?php if (!$c['is_read']): ?>
                     <a href="?mark_read=<?= $c['id'] ?>" class="btn btn-sm btn-outline">Als gelezen markeren</a>
                   <?php endif; ?>
-                  <a href="/admin/new-client.php?name=<?= urlencode($c['name']) ?>&email=<?= urlencode($c['email']) ?>&phone=<?= urlencode($c['phone']) ?>&company=<?= urlencode($c['company']) ?>&type=lead" class="btn btn-sm btn-primary">Lead aanmaken</a>
+                  <a href="/admin/new-client.php?from_contact=<?= $c['id'] ?>" class="btn btn-sm btn-primary">Lead aanmaken</a>
                   <a href="mailto:<?= htmlspecialchars($c['email']) ?>" class="btn btn-sm btn-outline">&#128231; Reageren</a>
                 </div>
               </div>

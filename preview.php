@@ -132,7 +132,10 @@ $screenshotUrl = 'https://image.thum.io/get/width/1280/crop/900/' . $project['pr
   <!-- Top bar -->
   <div class="preview-bar">
     <span class="preview-bar-brand">WebSiteVoorJou</span>
-    <span class="preview-bar-info">
+    <span class="preview-bar-info" style="display:flex;align-items:center;gap:10px;">
+      <?php if (!empty($project['client_logo'])): ?>
+        <img src="/uploads/<?= htmlspecialchars($project['client_logo']) ?>" alt="Logo" style="height:28px;max-width:80px;object-fit:contain;border-radius:4px;background:#fff;padding:2px 4px;">
+      <?php endif; ?>
       Preview: <strong><?= htmlspecialchars($project['name']) ?></strong>
       &nbsp;&bull;&nbsp; Concept — nog niet definitief
     </span>

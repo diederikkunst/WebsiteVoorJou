@@ -66,9 +66,10 @@ function createPreviewToken(int $projectId): string {
 function getProjectByToken(string $token): ?array {
     $db = getDB();
     $stmt = $db->prepare('
-        SELECT p.*, pt.expires_at
+        SELECT p.*, pt.expires_at, c.logo AS client_logo, c.name AS client_name
         FROM preview_tokens pt
         JOIN projects p ON p.id = pt.project_id
+        JOIN clients c ON c.id = p.client_id
         WHERE pt.token = ? AND pt.expires_at > NOW()
     ');
     $stmt->execute([$token]);
@@ -83,7 +84,7 @@ function nextInvoiceNumber(): string {
 }
 
 function saveUpload(array $file, string $subdir): ?string {
-    $allowed = ['jpg','jpeg','png','gif','webp','pdf','doc','docx','xls','xlsx','zip'];
+    $allowed = ['jpg','jpeg','png','gif','webp','svg','pdf','doc','docx','xls','xlsx','zip'];
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
     if (!in_array($ext, $allowed)) return null;

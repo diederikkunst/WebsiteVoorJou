@@ -6,17 +6,23 @@ $success = '';
 $error   = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
-    $name    = trim($_POST['name'] ?? '');
-    $email   = trim($_POST['email'] ?? '');
-    $phone   = trim($_POST['phone'] ?? '');
-    $company = trim($_POST['company'] ?? '');
-    $message = trim($_POST['message'] ?? '');
+    $name            = trim($_POST['name'] ?? '');
+    $email           = trim($_POST['email'] ?? '');
+    $phone           = trim($_POST['phone'] ?? '');
+    $company         = trim($_POST['company'] ?? '');
+    $message         = trim($_POST['message'] ?? '');
+    $currentWebsite  = trim($_POST['current_website'] ?? '');
 
     if ($name && $email && filter_var($email, FILTER_VALIDATE_EMAIL) && $message) {
         try {
             $db = getDB();
-            $stmt = $db->prepare('INSERT INTO contact_requests (name, email, phone, company, message) VALUES (?, ?, ?, ?, ?)');
-            $stmt->execute([$name, $email, $phone, $company, $message]);
+            $logo = null;
+            if (!empty($_FILES['logo']['name'])) {
+                require_once __DIR__ . '/includes/functions.php';
+                $logo = saveUpload($_FILES['logo'], 'contact_logos');
+            }
+            $stmt = $db->prepare('INSERT INTO contact_requests (name, email, phone, company, message, current_website, logo) VALUES (?, ?, ?, ?, ?, ?, ?)');
+            $stmt->execute([$name, $email, $phone, $company, $message, $currentWebsite ?: null, $logo]);
             $success = 'Bedankt! We nemen binnen 2 werkdagen contact met je op.';
         } catch (Exception $e) {
             $error = 'Er is iets misgegaan. Probeer het opnieuw.';
@@ -378,7 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
           <div class="alert alert-danger">&#10007; <?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
 
-        <form method="post" action="#contact">
+        <form method="post" action="#contact" enctype="multipart/form-data">
           <input type="hidden" name="contact_form" value="1">
           <div class="form-row">
             <div class="form-group">
@@ -404,6 +410,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
             <label class="form-label">Beschrijf je bedrijf en wensen *</label>
             <textarea name="message" class="form-control" rows="5" placeholder="Vertel ons in eigen woorden wat je doet, voor wie, en wat voor website je in gedachten hebt..." required></textarea>
             <p class="form-hint">Hoe meer details, hoe beter we de preview op jou kunnen afstemmen.</p>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Huidige website</label>
+              <input type="url" name="current_website" class="form-control" placeholder="https://www.jouwbedrijf.nl">
+              <p class="form-hint">Optioneel — als je al een website hebt.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Logo</label>
+              <input type="file" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp,.svg">
+              <p class="form-hint">Optioneel — jpg, png, svg (max 10MB).</p>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary w-full btn-lg">
             Verstuur aanvraag &#8594;

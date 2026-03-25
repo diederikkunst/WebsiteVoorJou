@@ -33,6 +33,7 @@ CREATE TABLE projects (
     name VARCHAR(150) NOT NULL,
     description TEXT,
     preview_url VARCHAR(255),
+    logo VARCHAR(255),
     package ENUM('brons','zilver','goud','platinum') DEFAULT 'brons',
     status ENUM('nieuw','in_behandeling','preview_beschikbaar','afgerond','factuur_gestuurd','factuur_betaald') DEFAULT 'nieuw',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -90,6 +91,8 @@ CREATE TABLE contact_requests (
     phone VARCHAR(30),
     company VARCHAR(150),
     message TEXT NOT NULL,
+    current_website VARCHAR(255),
+    logo VARCHAR(255),
     is_read TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

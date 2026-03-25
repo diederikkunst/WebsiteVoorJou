@@ -9,6 +9,22 @@ $db   = getDB();
 
 $error = '';
 
+// Pre-fill from contact request
+$prefill = ['name' => '', 'email' => '', 'phone' => '', 'type' => 'lead', 'notes' => '', 'website' => '', 'logo' => ''];
+if (!empty($_GET['from_contact'])) {
+    $cr = $db->prepare('SELECT * FROM contact_requests WHERE id = ?');
+    $cr->execute([(int)$_GET['from_contact']]);
+    $contact = $cr->fetch();
+    if ($contact) {
+        $prefill['name']    = $contact['company'] ?: $contact['name'];
+        $prefill['email']   = $contact['email'];
+        $prefill['phone']   = $contact['phone'] ?? '';
+        $prefill['website'] = $contact['current_website'] ?? '';
+        $prefill['logo']    = $contact['logo'] ?? '';
+        $prefill['notes']   = 'Aanvraag van ' . $contact['name'] . ":\n" . $contact['message'];
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name    = trim($_POST['name'] ?? '');
     $type    = $_POST['type'] ?? 'lead';
@@ -24,6 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $logo = null;
     if (!empty($_FILES['logo']['name'])) {
         $logo = saveUpload($_FILES['logo'], 'logos');
+    } elseif (!empty($_POST['existing_logo'])) {
+        // Kopieer logo van contact_logos naar logos
+        $src = UPLOAD_DIR . basename(dirname($_POST['existing_logo'])) . '/' . basename($_POST['existing_logo']);
+        $dest = UPLOAD_DIR . 'logos/' . basename($_POST['existing_logo']);
+        if (!is_dir(UPLOAD_DIR . 'logos/')) mkdir(UPLOAD_DIR . 'logos/', 0755, true);
+        if (file_exists($src) && copy($src, $dest)) {
+            $logo = 'logos/' . basename($_POST['existing_logo']);
+        }
     }
 
     if ($name) {
@@ -87,25 +111,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <div class="form-group">
             <label class="form-label">Type *</label>
             <select name="type" class="form-control">
-              <option value="lead"   <?= ($_POST['type'] ?? 'lead') === 'lead' ? 'selected' : '' ?>>Lead</option>
-              <option value="client" <?= ($_POST['type'] ?? '') === 'client' ? 'selected' : '' ?>>Klant</option>
+              <option value="lead"   <?= ($_POST['type'] ?? $prefill['type']) === 'lead' ? 'selected' : '' ?>>Lead</option>
+              <option value="client" <?= ($_POST['type'] ?? $prefill['type']) === 'client' ? 'selected' : '' ?>>Klant</option>
             </select>
             <p class="form-hint">Lead = nog geen klant. Klant = betalende klant met portaal-toegang.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Naam *</label>
-            <input type="text" name="name" class="form-control" placeholder="Bedrijfsnaam of naam" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>" required>
+            <input type="text" name="name" class="form-control" placeholder="Bedrijfsnaam of naam" value="<?= htmlspecialchars($_POST['name'] ?? $prefill['name']) ?>" required>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">E-mailadres</label>
-            <input type="email" name="email" class="form-control" placeholder="info@bedrijf.nl" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+            <input type="email" name="email" class="form-control" placeholder="info@bedrijf.nl" value="<?= htmlspecialchars($_POST['email'] ?? $prefill['email']) ?>">
             <p class="form-hint">Bij type "Klant" wordt automatisch een portaalaccount aangemaakt.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Telefoonnummer</label>
-            <input type="tel" name="phone" class="form-control" placeholder="+31 6 12345678" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
+            <input type="tel" name="phone" class="form-control" placeholder="+31 6 12345678" value="<?= htmlspecialchars($_POST['phone'] ?? $prefill['phone']) ?>">
           </div>
         </div>
         <div class="form-group">
@@ -115,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Website</label>
-            <input type="url" name="website" class="form-control" placeholder="https://www.bedrijf.nl" value="<?= htmlspecialchars($_POST['website'] ?? '') ?>">
+            <input type="url" name="website" class="form-control" placeholder="https://www.bedrijf.nl" value="<?= htmlspecialchars($_POST['website'] ?? $prefill['website']) ?>">
           </div>
           <div class="form-group">
             <label class="form-label">Rekeningnummer (IBAN)</label>
@@ -124,11 +148,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <div class="form-group">
           <label class="form-label">Logo</label>
-          <input type="file" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp,.svg">
+          <?php $existingLogo = $_POST['existing_logo'] ?? $prefill['logo']; ?>
+          <?php if ($existingLogo): ?>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+              <img src="/uploads/<?= htmlspecialchars($existingLogo) ?>" alt="Logo" style="height:48px;max-width:120px;object-fit:contain;border-radius:6px;border:1px solid var(--border);padding:4px;background:#fff;">
+              <span style="font-size:0.85rem;color:var(--text-muted);">Logo overgenomen uit aanvraag</span>
+            </div>
+            <input type="hidden" name="existing_logo" value="<?= htmlspecialchars($existingLogo) ?>">
+          <?php endif; ?>
+          <input type="file" name="logo" class="form-control" accept=".jpg,.jpeg,.png,.gif,.webp,.svg"<?= $existingLogo ? '' : '' ?>>
+          <?php if ($existingLogo): ?>
+            <p class="form-hint">Upload een nieuw bestand om het bovenstaande logo te vervangen.</p>
+          <?php endif; ?>
         </div>
         <div class="form-group">
           <label class="form-label">Notities</label>
-          <textarea name="notes" class="form-control" rows="3" placeholder="Interne notities..."><?= htmlspecialchars($_POST['notes'] ?? '') ?></textarea>
+          <textarea name="notes" class="form-control" rows="3" placeholder="Interne notities..."><?= htmlspecialchars($_POST['notes'] ?? $prefill['notes']) ?></textarea>
         </div>
         <div style="display:flex;gap:12px;margin-top:8px;">
           <button type="submit" class="btn btn-primary">Aanmaken &#8594;</button>

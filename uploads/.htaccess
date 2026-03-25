@@ -1,13 +1,16 @@
 # Prevent execution of uploaded files
 Options -ExecCGI
-AddHandler cgi-script .php .php3 .php4 .php5 .phtml .pl .py .jsp .asp .shtml .sh .cgi
-RemoveHandler .php .php3 .php4 .php5 .phtml
-php_flag engine off
+<FilesMatch "\.(php\d?|phtml|pl|py|jsp|asp|sh|cgi)$">
+    Require all denied
+</FilesMatch>
 
 # Prevent directory listing
 Options -Indexes
 
+# Deny all by default
+Require all denied
+
 # Allow access to static files only
 <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|pdf|doc|docx|xls|xlsx|zip|txt)$">
-    Allow from all
+    Require all granted
 </FilesMatch>
