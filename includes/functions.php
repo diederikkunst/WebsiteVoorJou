@@ -195,7 +195,7 @@ function getScreenshot(string $url): ?string {
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 30,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_USERAGENT      => 'WebSiteVoorJou/1.0',
+        CURLOPT_USERAGENT      => 'WebsiteVoorJou/1.0',
     ]);
     $data = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

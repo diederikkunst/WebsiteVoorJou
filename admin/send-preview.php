@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
         $htmlBody = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f9f9f9;padding:20px;">
 <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
   <div style="background:linear-gradient(135deg,#6C63FF,#00D4FF);padding:32px 32px 24px;text-align:center;">
-    <h1 style="color:#fff;margin:0;font-size:1.8rem;">WebSiteVoorJou</h1>
+    <h1 style="color:#fff;margin:0;font-size:1.8rem;">WebsiteVoorJou</h1>
     <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Jouw website, razendsnel live</p>
   </div>
   <div style="padding:32px;">
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
     </div>
   </div>
   <div style="background:#f9f9f9;padding:16px 32px;text-align:center;border-top:1px solid #eee;">
-    <p style="font-size:0.8rem;color:#999;margin:0;">WebSiteVoorJou &bull; info@websitevoorjou.nl &bull; websitevoorjou.nl</p>
+    <p style="font-size:0.8rem;color:#999;margin:0;">WebsiteVoorJou &bull; info@websitevoorjou.nl &bull; websitevoorjou.nl</p>
   </div>
 </div>
 </body></html>';
@@ -155,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
           </div>
           <div class="form-group">
             <label class="form-label">Onderwerp</label>
-            <input type="text" name="subject" class="form-control" value="Je website preview staat klaar! — WebSiteVoorJou">
+            <input type="text" name="subject" class="form-control" value="Je website preview staat klaar! — WebsiteVoorJou">
           </div>
           <div class="form-group">
             <label class="form-label">Extra bericht (optioneel)</label>
@@ -180,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
         <div class="card-header"><h3 class="card-title">E-mail voorbeeld</h3></div>
         <div style="background:#f9f9f9;border-radius:8px;padding:20px;font-family:Arial,sans-serif;font-size:0.9rem;border:1px solid var(--border);">
           <div style="background:linear-gradient(135deg,#6C63FF,#00D4FF);padding:20px;border-radius:8px 8px 0 0;text-align:center;margin:-20px -20px 20px;">
-            <h2 style="color:#fff;margin:0;font-size:1.3rem;">WebSiteVoorJou</h2>
+            <h2 style="color:#fff;margin:0;font-size:1.3rem;">WebsiteVoorJou</h2>
             <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:0.85rem;">Jouw website, razendsnel live</p>
           </div>
           <p style="color:#444;">Hoi <?= htmlspecialchars($project['client_name']) ?>,</p>

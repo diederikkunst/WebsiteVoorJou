@@ -25,15 +25,15 @@ if (!$project || empty($project['preview_url'])) {
     exit;
 }
 
-// Screenshot via thum.io — geen API key nodig
-$screenshotUrl = 'https://image.thum.io/get/width/1280/crop/900/' . $project['preview_url'];
+$screenshotFallback = 'https://image.thum.io/get/width/1280/fullpage/' . $project['preview_url'];
+$previewUrl = htmlspecialchars($project['preview_url']);
 ?>
 <!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview — <?= htmlspecialchars($project['name']) ?> — WebSiteVoorJou</title>
+  <title>Preview — <?= htmlspecialchars($project['name']) ?> — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/style.css">
@@ -54,44 +54,34 @@ $screenshotUrl = 'https://image.thum.io/get/width/1280/crop/900/' . $project['pr
     .preview-bar-info { font-size: 0.85rem; color: var(--text-muted); }
     .preview-bar-info strong { color: var(--text); }
 
-    /* Scrollable screenshot area */
-    .preview-scroll {
-      flex: 1; overflow-y: auto; overflow-x: hidden;
-      position: relative; background: #e8eaf0;
+    /* Main preview area */
+    .preview-wrap {
+      flex: 1; position: relative; overflow: hidden; background: #e8eaf0;
     }
 
-    /* Screenshot wrapper — centered, max-width, with watermarks */
-    .preview-shot-wrap {
-      position: relative;
-      display: block;
-      width: 100%;
-      max-width: 1280px;
-      margin: 0 auto;
-      user-select: none;
-    }
-    .preview-shot-wrap img {
-      display: block; width: 100%; height: auto;
-      pointer-events: none;
+    /* Iframe */
+    #previewFrame {
+      width: 100%; height: 100%; border: none; display: block;
     }
 
-    /* Transparent click blocker */
+    /* Transparent click blocker over iframe */
     .preview-click-block {
       position: absolute; inset: 0; z-index: 5;
-      cursor: not-allowed; background: transparent;
+      cursor: default; background: transparent;
     }
 
-    /* Repeating diagonal watermark pattern */
+    /* Watermark grid over iframe */
     .preview-wm-grid {
       position: absolute; inset: 0; z-index: 6;
       pointer-events: none; overflow: hidden;
-      display: flex; flex-direction: column; gap: 120px;
+      display: flex; flex-direction: column; gap: 140px;
       padding: 60px 0;
     }
     .preview-wm-row {
       display: flex; gap: 200px; white-space: nowrap;
       transform: rotate(-25deg);
       transform-origin: center center;
-      opacity: 0.12;
+      opacity: 0.10;
     }
     .preview-wm-row span {
       font-size: 1.6rem; font-weight: 900;
@@ -112,29 +102,48 @@ $screenshotUrl = 'https://image.thum.io/get/width/1280/crop/900/' . $project['pr
     .preview-badge.bl { bottom: 12px; left: 12px; }
     .preview-badge.br { bottom: 12px; right: 12px; }
 
+    /* Screenshot fallback (scrollable) */
+    #screenshotFallback {
+      display: none; position: absolute; inset: 0;
+      overflow-y: auto; overflow-x: hidden; z-index: 1;
+    }
+    #screenshotFallback img {
+      display: block; width: 100%; max-width: 1280px;
+      height: auto; margin: 0 auto;
+      pointer-events: none; user-select: none;
+    }
+
     /* Loading state */
-    .preview-loading {
+    #loadingOverlay {
       position: absolute; inset: 0; display: flex;
       flex-direction: column; align-items: center; justify-content: center;
-      gap: 16px; background: var(--bg-2); z-index: 2;
+      gap: 16px; background: var(--bg-2); z-index: 8;
     }
-    .preview-loading .spinner {
+    #loadingOverlay .spinner {
       width: 40px; height: 40px; border-radius: 50%;
       border: 3px solid var(--border);
       border-top-color: var(--primary);
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Blocked notice */
+    #blockedNotice {
+      display: none; position: absolute; inset: 0; z-index: 9;
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; background: var(--bg-2); text-align: center; padding: 32px;
+    }
   </style>
 </head>
 <body class="preview-mode">
 
   <!-- Top bar -->
   <div class="preview-bar">
-    <span class="preview-bar-brand">WebSiteVoorJou</span>
+    <span class="preview-bar-brand">WebsiteVoorJou</span>
     <span class="preview-bar-info" style="display:flex;align-items:center;gap:10px;">
-      <?php if (!empty($project['client_logo'])): ?>
-        <img src="/uploads/<?= htmlspecialchars($project['client_logo']) ?>" alt="Logo" style="height:28px;max-width:80px;object-fit:contain;border-radius:4px;background:#fff;padding:2px 4px;">
+      <?php $barLogo = $project['logo'] ?? $project['client_logo'] ?? ''; ?>
+      <?php if ($barLogo): ?>
+        <img src="/uploads/<?= htmlspecialchars($barLogo) ?>" alt="Logo" style="height:28px;max-width:80px;object-fit:contain;border-radius:4px;background:#fff;padding:2px 4px;">
       <?php endif; ?>
       Preview: <strong><?= htmlspecialchars($project['name']) ?></strong>
       &nbsp;&bull;&nbsp; Concept — nog niet definitief
@@ -144,84 +153,100 @@ $screenshotUrl = 'https://image.thum.io/get/width/1280/crop/900/' . $project['pr
 
   <!-- Corner badges (fixed so always visible while scrolling) -->
   <div class="preview-badge tl">PREVIEW</div>
-  <div class="preview-badge tr">WebSiteVoorJou.nl</div>
+  <div class="preview-badge tr">WebsiteVoorJou.nl</div>
   <div class="preview-badge bl">CONCEPT &copy; <?= date('Y') ?></div>
   <div class="preview-badge br">Niet definitief</div>
 
-  <!-- Scrollable screenshot -->
-  <div class="preview-scroll">
-    <div class="preview-shot-wrap" id="shotWrap">
+  <!-- Preview area -->
+  <div class="preview-wrap" id="previewWrap">
 
-      <!-- Loading indicator -->
-      <div class="preview-loading" id="loading">
-        <div class="spinner"></div>
-        <p id="loadMsg" style="color:var(--text-muted);font-size:0.9rem;">Screenshot wordt gemaakt...</p>
-        <p id="loadSub" style="color:var(--text-muted);font-size:0.8rem;display:none;">Dit kan tot 30 seconden duren bij een nieuw domein.</p>
-      </div>
+    <!-- Iframe via proxy (omzeilt X-Frame-Options) -->
+    <iframe id="previewFrame" src="/preview-proxy.php?token=<?= urlencode($token) ?>" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
 
-      <!-- Screenshot image -->
-      <img
-        id="shotImg"
-        src="<?= htmlspecialchars($screenshotUrl) ?>"
-        alt="Website preview"
-        style="display:none;"
-        draggable="false"
-      >
-
-      <!-- Click blocker overlay -->
-      <div class="preview-click-block"></div>
-
-      <!-- Watermark grid -->
-      <div class="preview-wm-grid" id="wmGrid"></div>
+    <!-- Screenshot fallback -->
+    <div id="screenshotFallback">
+      <img id="shotImg" src="" alt="Website preview" draggable="false">
     </div>
+
+    <!-- Loading overlay -->
+    <div id="loadingOverlay">
+      <div class="spinner"></div>
+      <p style="color:var(--text-muted);font-size:0.9rem;" id="loadMsg">Website wordt geladen...</p>
+    </div>
+
+    <!-- Blocked notice (shown when iframe is blocked) -->
+    <div id="blockedNotice">
+      <p style="color:var(--text-muted);font-size:0.95rem;">Deze website blokkeert inladen in een frame.<br>We tonen een screenshot als alternatief.</p>
+    </div>
+
+    <!-- Click blocker (over iframe so links niet klikbaar zijn) -->
+    <div class="preview-click-block" id="clickBlock"></div>
+
+    <!-- Watermark grid -->
+    <div class="preview-wm-grid" id="wmGrid"></div>
   </div>
 
 <script>
 (function() {
-  var img     = document.getElementById('shotImg');
-  var loading = document.getElementById('loading');
-  var wrap    = document.getElementById('shotWrap');
-  var wmGrid  = document.getElementById('wmGrid');
+  var frame       = document.getElementById('previewFrame');
+  var loading     = document.getElementById('loadingOverlay');
+  var blocked     = document.getElementById('blockedNotice');
+  var fallback    = document.getElementById('screenshotFallback');
+  var shotImg     = document.getElementById('shotImg');
+  var wmGrid      = document.getElementById('wmGrid');
+  var fallbackUrl = <?= json_encode($screenshotFallback) ?>;
 
-  // Build repeating watermark rows
-  for (var r = 0; r < 12; r++) {
+  // Build watermark rows
+  for (var r = 0; r < 14; r++) {
     var row = document.createElement('div');
     row.className = 'preview-wm-row';
     for (var c = 0; c < 6; c++) {
       var s = document.createElement('span');
-      s.textContent = 'PREVIEW — WebSiteVoorJou.nl';
+      s.textContent = 'PREVIEW — WebsiteVoorJou.nl';
       row.appendChild(s);
     }
     wmGrid.appendChild(row);
   }
 
-  // Show sub-message after 5 seconds
-  var subTimer = setTimeout(function() {
-    document.getElementById('loadSub').style.display = 'block';
-    document.getElementById('loadMsg').textContent = 'Nog even geduld...';
-  }, 5000);
+  // Detect if iframe was blocked by X-Frame-Options
+  var iframeLoaded = false;
+  var loadTimeout = setTimeout(function() {
+    if (!iframeLoaded) showFallback();
+  }, 8000);
 
-  // Show retry button after 35 seconds
-  var retryTimer = setTimeout(function() {
-    loading.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;text-align:center;padding:0 24px;">Screenshot kon niet worden geladen.</p>'
-      + '<button onclick="location.reload()" style="margin-top:16px;padding:10px 24px;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;">Opnieuw proberen</button>';
-  }, 35000);
-
-  img.onload = function() {
-    clearTimeout(subTimer);
-    clearTimeout(retryTimer);
+  frame.onload = function() {
+    iframeLoaded = true;
+    clearTimeout(loadTimeout);
     loading.style.display = 'none';
-    img.style.display = 'block';
   };
 
-  img.onerror = function() {
-    clearTimeout(subTimer);
-    clearTimeout(retryTimer);
-    loading.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;text-align:center;padding:0 24px;">Screenshot kon niet worden geladen.</p>'
-      + '<button onclick="location.reload()" style="margin-top:16px;padding:10px 24px;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#fff;border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;">Opnieuw proberen</button>';
+  frame.onerror = function() {
+    clearTimeout(loadTimeout);
+    showFallback();
   };
 
-  // Disable right-click, selection, copy, keyboard shortcuts
+  function showFallback() {
+    frame.style.display = 'none';
+    blocked.style.display = 'flex';
+    loading.style.display = 'none';
+
+    // Load screenshot
+    setTimeout(function() {
+      blocked.style.display = 'none';
+      fallback.style.display = 'block';
+      loading.style.display = 'flex';
+      document.getElementById('loadMsg').textContent = 'Screenshot wordt gemaakt...';
+
+      shotImg.onload = function() { loading.style.display = 'none'; };
+      shotImg.onerror = function() {
+        loading.innerHTML = '<p style="color:var(--text-muted);font-size:0.9rem;padding:0 24px;">Kon niet laden.</p>'
+          + '<button onclick="location.reload()" style="margin-top:16px;padding:10px 24px;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Opnieuw proberen</button>';
+      };
+      shotImg.src = fallbackUrl;
+    }, 1500);
+  }
+
+  // Disable right-click, selection, copy
   document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
   document.addEventListener('selectstart', function(e) { e.preventDefault(); });
   document.addEventListener('copy',        function(e) { e.preventDefault(); });

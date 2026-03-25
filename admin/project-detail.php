@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_download_email']
 <body style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f9f9f9;padding:20px;">
 <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
   <div style="background:linear-gradient(135deg,#6C63FF,#00D4FF);padding:32px;text-align:center;">
-    <h1 style="color:#fff;margin:0;font-size:1.8rem;">WebSiteVoorJou</h1>
+    <h1 style="color:#fff;margin:0;font-size:1.8rem;">WebsiteVoorJou</h1>
     <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Jouw website, razendsnel live</p>
   </div>
   <div style="padding:32px;">
@@ -99,12 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_download_email']
     <p style="color:#888;font-size:0.85rem;">Vragen? Stuur een e-mail naar <a href="mailto:' . MAIL_FROM . '" style="color:#6C63FF;">' . MAIL_FROM . '</a>.</p>
   </div>
   <div style="background:#f9f9f9;padding:16px 32px;text-align:center;border-top:1px solid #eee;">
-    <p style="font-size:0.8rem;color:#999;margin:0;">WebSiteVoorJou &bull; ' . MAIL_FROM . ' &bull; websitevoorjou.nl</p>
+    <p style="font-size:0.8rem;color:#999;margin:0;">WebsiteVoorJou &bull; ' . MAIL_FROM . ' &bull; websitevoorjou.nl</p>
   </div>
 </div>
 </body></html>';
 
-        if (sendMail($toEmail, 'Je website staat klaar om te downloaden! — WebSiteVoorJou', $htmlBody, $project['client_name'])) {
+        if (sendMail($toEmail, 'Je website staat klaar om te downloaden! — WebsiteVoorJou', $htmlBody, $project['client_name'])) {
             $success = 'Download e-mail verstuurd naar ' . $toEmail . '!';
         } else {
             $error = 'Versturen mislukt. Controleer de mailconfiguratie.';

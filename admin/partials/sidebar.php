@@ -5,7 +5,7 @@ $dir     = basename(dirname($_SERVER['PHP_SELF']));
 $isAdmin = $user['role'] === 'admin';
 ?>
 <aside class="sidebar">
-  <div class="sidebar-brand">WebSiteVoorJou</div>
+  <div class="sidebar-brand">WebsiteVoorJou</div>
 
   <div class="sidebar-section">Overzicht</div>
   <ul class="sidebar-nav">

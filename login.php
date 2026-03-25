@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inloggen — WebSiteVoorJou</title>
+  <title>Inloggen — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/style.css">
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
   <div class="login-wrap">
-    <div class="login-logo">WebSiteVoorJou</div>
+    <div class="login-logo">WebsiteVoorJou</div>
     <div class="login-card">
       <h2>Welkom terug</h2>
       <p>Log in op je account om verder te gaan.</p>

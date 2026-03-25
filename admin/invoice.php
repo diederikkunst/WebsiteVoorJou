@@ -45,12 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice_email'])
 <body style="font-family:Arial,sans-serif;max-width:620px;margin:0 auto;background:#f9f9f9;padding:20px;">
 <div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
   <div style="background:linear-gradient(135deg,#6C63FF,#00D4FF);padding:32px;text-align:center;">
-    <h1 style="color:#fff;margin:0;font-size:1.8rem;">WebSiteVoorJou</h1>
+    <h1 style="color:#fff;margin:0;font-size:1.8rem;">WebsiteVoorJou</h1>
     <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;">Jouw website, razendsnel live</p>
   </div>
   <div style="padding:32px;">
     <h2 style="color:#111;font-size:1.3rem;margin-bottom:16px;">Factuur voor ' . htmlspecialchars($project['name']) . '</h2>
-    <p style="color:#444;line-height:1.6;">Hartelijk dank voor je vertrouwen in WebSiteVoorJou! Bijgaand ontvang je de factuur voor je website.</p>
+    <p style="color:#444;line-height:1.6;">Hartelijk dank voor je vertrouwen in WebsiteVoorJou! Bijgaand ontvang je de factuur voor je website.</p>
 
     <div style="background:#f4f4f8;border-radius:8px;padding:20px;margin:24px 0;">
       <table style="width:100%;border-collapse:collapse;">
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice_email'])
     </div>
 
     <p style="color:#444;font-size:0.95rem;line-height:1.7;">Gelieve het bedrag van <strong>&euro;' . $amountInclBtw . '</strong> vóór <strong>' . $dueDate . '</strong> over te maken op:<br>
-    IBAN: <strong>NL00 BANK 0000 0000 00</strong> t.n.v. WebSiteVoorJou<br>
+    IBAN: <strong>NL00 BANK 0000 0000 00</strong> t.n.v. WebsiteVoorJou<br>
     O.v.v. factuurnummer: <strong>' . htmlspecialchars($invoice['invoice_number']) . '</strong></p>
 
     <div style="background:linear-gradient(135deg,rgba(108,99,255,0.08),rgba(0,212,255,0.08));border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:20px;margin:24px 0;">
@@ -85,12 +85,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice_email'])
     <p style="color:#888;font-size:0.85rem;">Vragen over de factuur? Stuur een e-mail naar <a href="mailto:' . MAIL_FROM . '" style="color:#6C63FF;">' . MAIL_FROM . '</a>.</p>
   </div>
   <div style="background:#f9f9f9;padding:16px 32px;text-align:center;border-top:1px solid #eee;">
-    <p style="font-size:0.8rem;color:#999;margin:0;">WebSiteVoorJou &bull; ' . MAIL_FROM . ' &bull; websitevoorjou.nl</p>
+    <p style="font-size:0.8rem;color:#999;margin:0;">WebsiteVoorJou &bull; ' . MAIL_FROM . ' &bull; websitevoorjou.nl</p>
   </div>
 </div>
 </body></html>';
 
-        if (sendMail($toEmail, 'Factuur ' . $invoice['invoice_number'] . ' — WebSiteVoorJou', $htmlBody, $project['client_name'])) {
+        if (sendMail($toEmail, 'Factuur ' . $invoice['invoice_number'] . ' — WebsiteVoorJou', $htmlBody, $project['client_name'])) {
             $db->prepare("UPDATE invoices SET status = 'verstuurd' WHERE id = ?")->execute([$invoice['id']]);
             $db->prepare("UPDATE projects SET status = 'factuur_gestuurd' WHERE id = ?")->execute([$projectId]);
             // Redirect terug naar project met melding
@@ -240,7 +240,7 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
     <div class="invoice-preview" id="invoice-print">
       <div class="invoice-header">
         <div>
-          <div class="invoice-logo">WebSiteVoorJou</div>
+          <div class="invoice-logo">WebsiteVoorJou</div>
           <div style="font-size:0.85rem;color:#666;">info@websitevoorjou.nl</div>
           <div style="font-size:0.85rem;color:#666;">websitevoorjou.nl</div>
         </div>
@@ -262,7 +262,7 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
       <div class="invoice-parties">
         <div class="invoice-party">
           <h4>Van</h4>
-          <strong>WebSiteVoorJou</strong><br>
+          <strong>WebsiteVoorJou</strong><br>
           Nederland<br>
           info@websitevoorjou.nl<br>
           KvK: XXXXXXXX<br>
@@ -307,8 +307,8 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
       </div>
 
       <div class="invoice-footer">
-        <p>Gelieve het bedrag van <strong>&euro;<?= number_format($invoice['amount'] * 1.21, 2, ',', '.') ?></strong> voor <?= $invoice['due_date'] ? formatDate($invoice['due_date']) : '30 dagen na factuurdatum' ?> over te maken op IBAN: <strong>NL00 BANK 0000 0000 00</strong> t.n.v. WebSiteVoorJou o.v.v. factuurnummer <strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong>.</p>
-        <p style="margin-top:8px;">Bedankt voor uw vertrouwen in WebSiteVoorJou!</p>
+        <p>Gelieve het bedrag van <strong>&euro;<?= number_format($invoice['amount'] * 1.21, 2, ',', '.') ?></strong> voor <?= $invoice['due_date'] ? formatDate($invoice['due_date']) : '30 dagen na factuurdatum' ?> over te maken op IBAN: <strong>NL00 BANK 0000 0000 00</strong> t.n.v. WebsiteVoorJou o.v.v. factuurnummer <strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong>.</p>
+        <p style="margin-top:8px;">Bedankt voor uw vertrouwen in WebsiteVoorJou!</p>
       </div>
     </div>
     <?php endif; ?>

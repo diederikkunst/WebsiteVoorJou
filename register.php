@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Account aanmaken — WebSiteVoorJou</title>
+  <title>Account aanmaken — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/style.css">
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
   <div class="register-wrap">
-    <div class="register-logo">WebSiteVoorJou</div>
+    <div class="register-logo">WebsiteVoorJou</div>
     <div class="register-card">
       <h2 style="margin-bottom:4px;">Account aanmaken</h2>
       <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:24px;">Maak een account aan om je projecten te beheren.</p>

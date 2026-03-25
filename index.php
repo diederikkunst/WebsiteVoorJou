@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebSiteVoorJou — Jouw website, snel gebouwd met AI</title>
+  <title>WebsiteVoorJou — Jouw website, snel gebouwd met AI</title>
   <meta name="description" content="Van concept naar online in no time. Stuur ons je bedrijfsbeschrijving en ontvang een gepersonaliseerde website preview. Professioneel, snel en betaalbaar.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
 <!-- Navbar -->
 <nav class="navbar">
   <div class="container">
-    <a href="/" class="navbar-brand">WebSiteVoorJou</a>
+    <a href="/" class="navbar-brand">WebsiteVoorJou</a>
     <ul class="navbar-nav">
       <li><a href="#over-ons">Over ons</a></li>
       <li><a href="#pakketten">Pakketten</a></li>
@@ -438,7 +438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
   <div class="container">
     <div class="footer-grid">
       <div>
-        <div class="footer-brand">WebSiteVoorJou</div>
+        <div class="footer-brand">WebsiteVoorJou</div>
         <p class="footer-desc">Van concept naar online. Wij bouwen websites met passie, vakmanschap en de kracht van AI — snel, betaalbaar en precies zoals jij het wilt.</p>
       </div>
       <div>
@@ -469,7 +469,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
       </div>
     </div>
     <div class="footer-bottom">
-      <span>&copy; <?= date('Y') ?> WebSiteVoorJou. Alle rechten voorbehouden.</span>
+      <span>&copy; <?= date('Y') ?> WebsiteVoorJou. Alle rechten voorbehouden.</span>
       <span>Gebouwd met &#9889; &amp; AI</span>
     </div>
   </div>

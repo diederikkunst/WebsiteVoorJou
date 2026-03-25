@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nieuw project — WebSiteVoorJou</title>
+  <title>Nieuw project — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/css/style.css">
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 <div class="app-layout">
   <aside class="sidebar">
-    <div class="sidebar-brand">WebSiteVoorJou</div>
+    <div class="sidebar-brand">WebsiteVoorJou</div>
     <ul class="sidebar-nav">
       <li><a href="/portal/dashboard.php"><span class="nav-icon">&#127968;</span> Dashboard</a></li>
       <li><a href="/portal/new-project.php" class="active"><span class="nav-icon">&#43;</span> Nieuw project</a></li>

@@ -1,4 +1,4 @@
-// WebSiteVoorJou — Main JS
+// WebsiteVoorJou — Main JS
 
 document.addEventListener('DOMContentLoaded', () => {
 
