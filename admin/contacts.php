@@ -35,18 +35,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
     $contact = $stmt->fetch();
 
     if ($contact && $subject && $body) {
-        $html = '<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">'
-              . '<p>Beste ' . htmlspecialchars($contact['name']) . ',</p>'
-              . '<p style="white-space:pre-wrap;">' . nl2br(htmlspecialchars($body)) . '</p>'
-              . '<p style="margin-top:32px;color:#888;font-size:0.85rem;">Met vriendelijke groet,<br>Het team van WebsiteVoorJou</p>'
-              . '</div>';
+        try {
+            $html = '<div style="font-family:sans-serif;max-width:600px;margin:0 auto;">'
+                  . '<p style="white-space:pre-wrap;">' . nl2br(htmlspecialchars($body)) . '</p>'
+                  . '</div>';
 
-        if (sendMail($contact['email'], $subject, $html, $contact['name'])) {
-            $db->prepare('UPDATE contact_requests SET status = \'reactie_gestuurd\', is_read = 1, replied_at = NOW() WHERE id = ?')
-               ->execute([$id]);
-            $success = 'Reactie verstuurd naar ' . $contact['email'] . '.';
-        } else {
-            $error = 'Versturen mislukt. Controleer de mailconfiguratie.';
+            if (sendMail($contact['email'], $subject, $html, $contact['name'])) {
+                $db->prepare('UPDATE contact_requests SET status = \'reactie_gestuurd\', is_read = 1, replied_at = NOW() WHERE id = ?')
+                   ->execute([$id]);
+                $success = 'Reactie verstuurd naar ' . $contact['email'] . '.';
+            } else {
+                $error = 'Versturen mislukt. Controleer de mailconfiguratie in config.php.';
+            }
+        } catch (\Throwable $e) {
+            $error = 'Fout: ' . htmlspecialchars($e->getMessage());
         }
     }
 }
@@ -183,24 +185,22 @@ if ($contacts) {
 
               <!-- Reactieformulier -->
               <div id="reply-<?= $c['id'] ?>" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-                <form method="post">
+                <form method="post" action="/admin/contacts.php" target="_top">
                   <input type="hidden" name="send_reply" value="1">
                   <input type="hidden" name="contact_id" value="<?= $c['id'] ?>">
                   <div class="form-group">
                     <label class="form-label">Onderwerp</label>
                     <input type="text" name="subject" class="form-control"
-                      value="Re: Uw aanvraag via WebsiteVoorJou.nl">
+                      value="Bedankt voor je aanvraag — WebsiteVoorJou">
                   </div>
                   <div class="form-group">
                     <label class="form-label">Bericht</label>
-                    <textarea name="reply_body" class="form-control" rows="7">Beste <?= htmlspecialchars($c['name']) ?>,
+                    <textarea name="reply_body" class="form-control" rows="6">Beste <?= htmlspecialchars($c['name']) ?>,
 
-Bedankt voor uw aanvraag! We hebben uw bericht ontvangen en nemen zo snel mogelijk contact met u op.
-
-Heeft u vragen? Dan kunt u altijd contact opnemen via dit e-mailadres.
+Bedankt voor je aanvraag. Binnen een paar dagen ontvang je een mooie preview van jouw website.
 
 Met vriendelijke groet,
-Het team van WebsiteVoorJou</textarea>
+Het WebsiteVoorJou team</textarea>
                   </div>
                   <div style="display:flex;gap:8px;">
                     <button type="submit" class="btn btn-primary btn-sm">&#9993; Verstuur reactie</button>

@@ -6,24 +6,71 @@ $success = '';
 $error   = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
-    $name            = trim($_POST['name'] ?? '');
-    $email           = trim($_POST['email'] ?? '');
-    $phone           = trim($_POST['phone'] ?? '');
-    $company         = trim($_POST['company'] ?? '');
-    $message         = trim($_POST['message'] ?? '');
-    $currentWebsite  = trim($_POST['current_website'] ?? '');
+    require_once __DIR__ . '/includes/functions.php';
+    require_once __DIR__ . '/includes/auth.php';
+
+    $name           = trim($_POST['name'] ?? '');
+    $email          = trim($_POST['email'] ?? '');
+    $phone          = trim($_POST['phone'] ?? '');
+    $company        = trim($_POST['company'] ?? '');
+    $message        = trim($_POST['message'] ?? '');
+    $currentWebsite = trim($_POST['current_website'] ?? '');
+    $password       = $_POST['password'] ?? '';
+    $password2      = $_POST['password2'] ?? '';
+    $createAccount  = $password !== '';
 
     if ($name && $email && filter_var($email, FILTER_VALIDATE_EMAIL) && $message) {
         try {
             $db = getDB();
-            $logo = null;
-            if (!empty($_FILES['logo']['name'])) {
-                require_once __DIR__ . '/includes/functions.php';
-                $logo = saveUpload($_FILES['logo'], 'contact_logos');
+
+            // Valideer wachtwoord als account aanmaken
+            if ($createAccount) {
+                if (strlen($password) < 8) {
+                    $error = 'Wachtwoord moet minimaal 8 tekens zijn.';
+                } elseif ($password !== $password2) {
+                    $error = 'Wachtwoorden komen niet overeen.';
+                } else {
+                    $check = $db->prepare('SELECT id FROM users WHERE email = ?');
+                    $check->execute([$email]);
+                    if ($check->fetch()) {
+                        $error = 'Er bestaat al een account met dit e-mailadres. <a href="/login.php">Inloggen?</a>';
+                    }
+                }
             }
-            $stmt = $db->prepare('INSERT INTO contact_requests (name, email, phone, company, message, current_website, logo) VALUES (?, ?, ?, ?, ?, ?, ?)');
-            $stmt->execute([$name, $email, $phone, $company, $message, $currentWebsite ?: null, $logo]);
-            $success = 'Bedankt! We nemen binnen 2 werkdagen contact met je op.';
+
+            if (!$error) {
+                $logo = null;
+                if (!empty($_FILES['logo']['name'])) {
+                    $logo = saveUpload($_FILES['logo'], 'contact_logos');
+                }
+
+                // Sla contactaanvraag op
+                $stmt = $db->prepare('INSERT INTO contact_requests (name, email, phone, company, message, current_website, logo) VALUES (?, ?, ?, ?, ?, ?, ?)');
+                $stmt->execute([$name, $email, $phone, $company, $message, $currentWebsite ?: null, $logo]);
+
+                if ($createAccount) {
+                    // Account aanmaken
+                    $hash = password_hash($password, PASSWORD_DEFAULT);
+                    $db->prepare('INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, \'client\', 1)')
+                       ->execute([$name, $email, $hash]);
+                    $userId = $db->lastInsertId();
+
+                    // Client-record als lead aanmaken
+                    $db->prepare('INSERT INTO clients (user_id, type, name, email, phone, website) VALUES (?, \'lead\', ?, ?, ?, ?)')
+                       ->execute([$userId, $company ?: $name, $email, $phone ?: null, $currentWebsite ?: null]);
+
+                    // Auto-login
+                    $_SESSION['user_id']   = $userId;
+                    $_SESSION['user_name'] = $name;
+                    $_SESSION['user_role'] = 'client';
+                    session_regenerate_id(true);
+
+                    header('Location: /portal/dashboard.php');
+                    exit;
+                }
+
+                $success = 'Bedankt! We nemen binnen 2 werkdagen contact met je op.';
+            }
         } catch (Exception $e) {
             $error = 'Er is iets misgegaan. Probeer het opnieuw.';
         }
@@ -74,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
       <h1>Jouw website,<br><span class="gradient-text">razendsnel live</span></h1>
       <p>Stuur ons je bedrijfsbeschrijving en ontvang binnen enkele dagen een professionele website preview. Geen gedoe, geen wachttijden — gewoon resultaat.</p>
       <div class="hero-actions">
-        <a href="#contact" class="btn btn-primary btn-lg">Vraag je gratis preview aan</a>
+        <a href="#contact" class="btn btn-primary btn-lg">Vraag jouw gratis preview aan</a>
         <a href="#pakketten" class="btn btn-outline btn-lg">Bekijk pakketten</a>
       </div>
     </div>
@@ -375,7 +422,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
         </div>
       </div>
       <div class="contact-form">
-        <h3 style="margin-bottom:24px;">Vraag je gratis preview aan</h3>
+        <h3 style="margin-bottom:8px;">Vraag jouw gratis preview aan</h3>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;">Maak gelijk een account aan om je preview te volgen in het portaal.</p>
+
+        <?php if (GOOGLE_CLIENT_ID): ?>
+        <a href="/auth/google.php" class="btn btn-outline w-full" style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;">
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Doorgaan met Google
+        </a>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+          <div style="flex:1;height:1px;background:var(--border);"></div>
+          <span style="font-size:0.8rem;color:var(--text-muted);">of vul het formulier in</span>
+          <div style="flex:1;height:1px;background:var(--border);"></div>
+        </div>
+        <?php endif; ?>
 
         <?php if ($success): ?>
           <div class="alert alert-success" data-dismiss="6000">&#10003; <?= htmlspecialchars($success) ?></div>
@@ -423,11 +483,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
               <p class="form-hint">Optioneel — jpg, png, svg (max 10MB).</p>
             </div>
           </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Wachtwoord <span style="color:var(--text-muted);font-weight:400;">(optioneel)</span></label>
+              <input type="password" name="password" class="form-control" placeholder="Minimaal 8 tekens — voor portaal toegang"
+                autocomplete="new-password" oninput="checkPass()">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Herhaal wachtwoord</label>
+              <input type="password" name="password2" class="form-control" id="password2" placeholder="Herhaal wachtwoord"
+                autocomplete="new-password" oninput="checkPass()">
+              <p id="passMsg" class="form-hint" style="display:none;"></p>
+            </div>
+          </div>
           <button type="submit" class="btn btn-primary w-full btn-lg">
-            Verstuur aanvraag &#8594;
+            Aanvraag versturen &#8594;
           </button>
           <p class="form-hint text-center" style="margin-top:12px;">100% gratis &amp; vrijblijvend. Geen creditcard nodig.</p>
         </form>
+        <script>
+        function checkPass() {
+          var p1 = document.querySelector('[name="password"]').value;
+          var p2 = document.getElementById('password2').value;
+          var msg = document.getElementById('passMsg');
+          if (!p1) { msg.style.display='none'; return; }
+          msg.style.display = 'block';
+          if (p1.length < 8) {
+            msg.textContent = 'Minimaal 8 tekens vereist.'; msg.style.color = 'var(--danger)';
+          } else if (p2 && p1 !== p2) {
+            msg.textContent = 'Wachtwoorden komen niet overeen.'; msg.style.color = 'var(--danger)';
+          } else if (p2 && p1 === p2) {
+            msg.textContent = 'Wachtwoorden komen overeen.'; msg.style.color = 'var(--success)';
+          } else {
+            msg.style.display = 'none';
+          }
+        }
+        </script>
       </div>
     </div>
   </div>

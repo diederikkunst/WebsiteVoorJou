@@ -21,6 +21,8 @@ CREATE TABLE clients (
     phone VARCHAR(30),
     website VARCHAR(255),
     bank_account VARCHAR(50),
+    kvk VARCHAR(20),
+    client_category ENUM('particulier','zakelijk') DEFAULT 'particulier',
     logo VARCHAR(255),
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -97,6 +99,29 @@ CREATE TABLE contact_requests (
     status ENUM('nieuw','reactie_gestuurd') DEFAULT 'nieuw',
     replied_at DATETIME,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE questions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    client_id INT NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('nieuw','in_behandeling','wacht_op_reactie','afgerond') DEFAULT 'nieuw',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+);
+
+CREATE TABLE question_replies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    question_id INT NOT NULL,
+    user_id INT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Default admin user (password: Admin@123 - change immediately!)

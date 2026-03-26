@@ -101,8 +101,10 @@ $body = substr($response, $headerSize);
 // Verwijder HTML-commentaar (maakt source minder leesbaar)
 $body = preg_replace('/<!--(?!\[if).*?-->/s', '', $body);
 
-// Verwijder eventuele meta X-Frame-Options tags
+// Verwijder security meta-tags die CSS/JS van originele server blokkeren
 $body = preg_replace('/<meta[^>]+http-equiv=["\']X-Frame-Options["\'][^>]*>/i', '', $body);
+$body = preg_replace('/<meta[^>]+http-equiv=["\']Content-Security-Policy["\'][^>]*>/i', '', $body);
+$body = preg_replace('/<meta[^>]+http-equiv=["\']X-Content-Type-Options["\'][^>]*>/i', '', $body);
 
 // Zorg dat relatieve URLs kloppen via een <base> tag
 $baseTag = '<base href="' . htmlspecialchars($finalUrl, ENT_QUOTES) . '" target="_self">';

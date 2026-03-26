@@ -90,6 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     <ul class="sidebar-nav">
       <li><a href="/portal/dashboard.php"><span class="nav-icon">&#127968;</span> Dashboard</a></li>
       <li><a href="/portal/new-project.php"><span class="nav-icon">&#43;</span> Nieuw project</a></li>
+      <li><a href="/portal/questions.php"><span class="nav-icon">&#10067;</span> Mijn vragen</a></li>
       <li><a href="/portal/profile.php" class="active"><span class="nav-icon">&#128100;</span> Mijn profiel</a></li>
     </ul>
     <div class="sidebar-footer">

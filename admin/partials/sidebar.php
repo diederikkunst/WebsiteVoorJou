@@ -18,6 +18,7 @@ $isAdmin = $user['role'] === 'admin';
   <ul class="sidebar-nav">
     <li><a href="/admin/clients.php" <?= $current === 'clients.php' || $current === 'client-detail.php' || $current === 'new-client.php' ? 'class="active"' : '' ?>><span class="nav-icon">&#128101;</span> Klanten &amp; Leads</a></li>
     <li><a href="/admin/contacts.php" <?= $current === 'contacts.php' ? 'class="active"' : '' ?>><span class="nav-icon">&#128172;</span> Aanvragen</a></li>
+    <li><a href="/admin/questions.php" <?= $current === 'questions.php' ? 'class="active"' : '' ?>><span class="nav-icon">&#10067;</span> Vragen</a></li>
   </ul>
 
   <div class="sidebar-section">Financieel</div>

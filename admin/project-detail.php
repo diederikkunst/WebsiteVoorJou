@@ -41,8 +41,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_project'])) {
     $project['logo'] = $logo;
     $success = 'Project bijgewerkt.';
 
-    // If status changed to preview_beschikbaar, create token
-    if ($newStatus === 'preview_beschikbaar' && $previewUrl) {
+    // Maak/vernieuw token zodra er een preview URL is ingesteld
+    if ($previewUrl) {
         createPreviewToken($projectId);
     }
 

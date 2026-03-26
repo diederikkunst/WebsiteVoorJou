@@ -37,6 +37,7 @@ $statuses = statusOptions();
     <ul class="sidebar-nav">
       <li><a href="/portal/dashboard.php" class="active"><span class="nav-icon">&#127968;</span> Dashboard</a></li>
       <li><a href="/portal/new-project.php"><span class="nav-icon">&#43;</span> Nieuw project</a></li>
+      <li><a href="/portal/questions.php"><span class="nav-icon">&#10067;</span> Mijn vragen</a></li>
       <li><a href="/portal/profile.php"><span class="nav-icon">&#128100;</span> Mijn profiel</a></li>
     </ul>
     <div class="sidebar-footer">
@@ -122,23 +123,29 @@ $statuses = statusOptions();
                 <td><?= statusLabel($p['status']) ?></td>
                 <td><?= formatDate($p['created_at']) ?></td>
                 <td>
-                  <?php if ($p['status'] === 'preview_beschikbaar' && $p['preview_url']): ?>
-                    <?php
-                      $stmt2 = $db->prepare('SELECT token FROM preview_tokens WHERE project_id = ? AND expires_at > NOW() LIMIT 1');
-                      $stmt2->execute([$p['id']]);
-                      $tokenRow = $stmt2->fetch();
-                    ?>
-                    <?php if ($tokenRow): ?>
-                      <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-sm btn-outline">&#128065; Bekijk preview</a>
-                    <?php else: ?>
-                      <span class="text-muted">Link verlopen</span>
-                    <?php endif; ?>
+                  <?php
+                    $stmt2 = $db->prepare('SELECT token FROM preview_tokens WHERE project_id = ? AND expires_at > NOW() LIMIT 1');
+                    $stmt2->execute([$p['id']]);
+                    $tokenRow = $stmt2->fetch();
+                  ?>
+                  <?php if ($tokenRow): ?>
+                    <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-sm btn-outline">&#128065; Bekijk preview</a>
                   <?php else: ?>
                     <span class="text-muted">—</span>
                   <?php endif; ?>
                 </td>
-                <td>
+                <td style="display:flex;gap:6px;flex-wrap:wrap;">
                   <a href="/portal/project.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline">Details</a>
+                  <?php if (in_array($p['status'], ['factuur_gestuurd','factuur_betaald'])): ?>
+                    <?php
+                      $invStmt = $db->prepare('SELECT id FROM invoices WHERE project_id = ? LIMIT 1');
+                      $invStmt->execute([$p['id']]);
+                      $inv = $invStmt->fetch();
+                    ?>
+                    <?php if ($inv): ?>
+                      <a href="/portal/invoice.php?id=<?= $inv['id'] ?>" class="btn btn-sm btn-primary">&#128424; Factuur</a>
+                    <?php endif; ?>
+                  <?php endif; ?>
                 </td>
               </tr>
               <?php endforeach; ?>

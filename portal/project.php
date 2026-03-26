@@ -29,7 +29,55 @@ if (!$project) {
 $error   = '';
 $success = '';
 
-// Handle preview approval
+// Accepteer preview: klantgegevens aanvullen + status naar afgerond
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_preview'])) {
+    $address    = trim($_POST['address'] ?? '');
+    $bankAcc    = trim($_POST['bank_account'] ?? '');
+    $clientType = $_POST['client_type'] ?? 'particulier';
+    $bedrijf    = trim($_POST['bedrijfsnaam'] ?? '');
+
+    $kvk = trim($_POST['kvk'] ?? '');
+
+    if (!$address || !$bankAcc) {
+        $error = 'Vul je adres en rekeningnummer in.';
+    } elseif ($clientType === 'zakelijk' && !$kvk) {
+        $error = 'Vul je KVK-nummer in.';
+    } else {
+        // Update klantprofiel
+        $updateFields = 'address = ?, bank_account = ?, kvk = ?, client_category = ?, type = ?';
+        $updateParams = [$address, $bankAcc, $kvk, $clientType, 'client'];
+        if ($clientType === 'zakelijk' && $bedrijf) {
+            $updateFields .= ', name = ?';
+            $updateParams[] = $bedrijf;
+        }
+        $updateParams[] = $client['id'];
+        $db->prepare("UPDATE clients SET $updateFields WHERE id = ?")->execute($updateParams);
+
+        // Zet project op afgerond
+        $db->prepare("UPDATE projects SET status = 'afgerond' WHERE id = ? AND client_id = ?")
+           ->execute([$projectId, $client['id']]);
+
+        // Maak factuur aan als die er nog niet is
+        $existingInv = $db->prepare('SELECT id FROM invoices WHERE project_id = ?');
+        $existingInv->execute([$projectId]);
+        if (!$existingInv->fetch()) {
+            $packagePrices = ['brons' => 0, 'zilver' => 999, 'goud' => 2999, 'platinum' => 0];
+            $amount = $packagePrices[$project['package']] ?? 0;
+            $number = nextInvoiceNumber();
+            $desc   = 'Websiteontwikkeling pakket ' . ucfirst($project['package']) . ' — ' . $project['name'];
+            $due    = date('Y-m-d', strtotime('+30 days'));
+            $db->prepare('INSERT INTO invoices (project_id, invoice_number, amount, description, due_date) VALUES (?, ?, ?, ?, ?)')
+               ->execute([$projectId, $number, $amount, $desc, $due]);
+        }
+
+        $success = 'Bedankt! Je bent nu officieel klant. We sturen je binnenkort een factuur.';
+        $stmt->execute([$projectId, $client['id']]);
+        $project = $stmt->fetch();
+        $client  = getClientForUser($user['id']);
+    }
+}
+
+// Handle preview approval (legacy / herbevestiging)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_preview'])) {
     if (in_array($project['status'], ['preview_beschikbaar', 'afgerond'])) {
         $db->prepare("UPDATE projects SET status = 'afgerond' WHERE id = ? AND client_id = ?")
@@ -161,6 +209,7 @@ $currentIdx = array_search($project['status'], $statusList);
     <ul class="sidebar-nav">
       <li><a href="/portal/dashboard.php"><span class="nav-icon">&#127968;</span> Dashboard</a></li>
       <li><a href="/portal/new-project.php"><span class="nav-icon">&#43;</span> Nieuw project</a></li>
+      <li><a href="/portal/questions.php"><span class="nav-icon">&#10067;</span> Mijn vragen</a></li>
       <li><a href="/portal/profile.php"><span class="nav-icon">&#128100;</span> Mijn profiel</a></li>
     </ul>
     <div class="sidebar-footer">
@@ -301,7 +350,7 @@ $currentIdx = array_search($project['status'], $statusList);
     </div>
     <?php endif; ?>
 
-    <!-- Preview goedkeuren -->
+    <!-- Preview accepteren -->
     <?php if ($project['status'] === 'preview_beschikbaar' || $project['status'] === 'afgerond'):
         $hasInvoice = $db->prepare('SELECT id FROM invoices WHERE project_id = ?');
         $hasInvoice->execute([$projectId]);
@@ -309,21 +358,57 @@ $currentIdx = array_search($project['status'], $statusList);
     ?>
     <?php if ($project['status'] === 'preview_beschikbaar'): ?>
     <div class="card" style="margin-top:24px;border-color:var(--primary);">
-      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
-        <div style="flex:1;min-width:240px;">
-          <h3 style="margin-bottom:6px;">&#127775; Je preview staat klaar!</h3>
-          <p>Bekijk je website en keur hem goed als je tevreden bent. Na goedkeuring maken wij een factuur aan.</p>
+      <h3 style="margin-bottom:6px;">&#127775; Je preview staat klaar!</h3>
+      <p style="margin-bottom:20px;">Bekijk je website hieronder. Ben je tevreden? Vul dan je gegevens in en accepteer de preview. Je wordt daarna officieel klant en ontvangt een factuur.</p>
+      <?php if ($tokenRow): ?>
+        <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-outline" style="margin-bottom:24px;display:inline-block;">&#128065; Preview bekijken</a>
+      <?php endif; ?>
+      <form method="post">
+        <input type="hidden" name="accept_preview" value="1">
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Adres *</label>
+            <input type="text" name="address" class="form-control" placeholder="Straat, huisnummer, postcode, plaats"
+              value="<?= htmlspecialchars($client['address'] ?? '') ?>" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">IBAN rekeningnummer *</label>
+            <input type="text" name="bank_account" class="form-control" placeholder="NL00 BANK 0000 0000 00"
+              value="<?= htmlspecialchars($client['bank_account'] ?? '') ?>" required>
+          </div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0;">
-          <?php if ($tokenRow): ?>
-            <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-outline">&#128065; Preview bekijken</a>
-          <?php endif; ?>
-          <form method="post" style="margin:0;">
-            <input type="hidden" name="approve_preview" value="1">
-            <button type="submit" class="btn btn-primary" data-confirm="Weet je zeker dat je de preview goedkeurt? We sturen daarna een factuur.">&#10003; Preview goedkeuren</button>
-          </form>
+        <?php $savedCategory = $client['client_category'] ?? 'particulier'; ?>
+        <div class="form-group">
+          <label class="form-label">Type klant *</label>
+          <div style="display:flex;gap:24px;margin-top:6px;">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;">
+              <input type="radio" name="client_type" value="particulier"
+                <?= $savedCategory === 'particulier' ? 'checked' : '' ?>
+                onchange="document.getElementById('zakelijk-rows').style.display='none'">
+              Particulier
+            </label>
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;">
+              <input type="radio" name="client_type" value="zakelijk"
+                <?= $savedCategory === 'zakelijk' ? 'checked' : '' ?>
+                onchange="document.getElementById('zakelijk-rows').style.display='block'">
+              Zakelijk
+            </label>
+          </div>
         </div>
-      </div>
+        <div id="zakelijk-rows" style="display:<?= $savedCategory === 'zakelijk' ? 'block' : 'none' ?>;">
+          <div class="form-group">
+            <label class="form-label">Bedrijfsnaam</label>
+            <input type="text" name="bedrijfsnaam" class="form-control" placeholder="Naam van je bedrijf"
+              value="<?= htmlspecialchars($_POST['bedrijfsnaam'] ?? $client['name'] ?? '') ?>">
+          </div>
+          <div class="form-group">
+            <label class="form-label">KVK-nummer *</label>
+            <input type="text" name="kvk" class="form-control" placeholder="12345678"
+              value="<?= htmlspecialchars($_POST['kvk'] ?? $client['kvk'] ?? '') ?>">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary">&#10003; Accepteren &amp; officieel klant worden</button>
+      </form>
     </div>
     <?php elseif ($project['status'] === 'afgerond' && !$hasInvoice): ?>
     <div class="card" style="margin-top:24px;border-color:var(--warning);">

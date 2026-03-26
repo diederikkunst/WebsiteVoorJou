@@ -64,12 +64,6 @@ $previewUrl = htmlspecialchars($project['preview_url']);
       width: 100%; height: 100%; border: none; display: block;
     }
 
-    /* Transparent click blocker over iframe */
-    .preview-click-block {
-      position: absolute; inset: 0; z-index: 5;
-      cursor: default; background: transparent;
-    }
-
     /* Watermark grid over iframe */
     .preview-wm-grid {
       position: absolute; inset: 0; z-index: 6;
@@ -178,9 +172,6 @@ $previewUrl = htmlspecialchars($project['preview_url']);
     <div id="blockedNotice">
       <p style="color:var(--text-muted);font-size:0.95rem;">Deze website blokkeert inladen in een frame.<br>We tonen een screenshot als alternatief.</p>
     </div>
-
-    <!-- Click blocker (over iframe so links niet klikbaar zijn) -->
-    <div class="preview-click-block" id="clickBlock"></div>
 
     <!-- Watermark grid -->
     <div class="preview-wm-grid" id="wmGrid"></div>

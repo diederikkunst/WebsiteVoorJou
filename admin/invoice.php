@@ -22,7 +22,7 @@ if ($invoiceId) {
 }
 
 if ($projectId) {
-    $stmt = $db->prepare('SELECT p.*, c.name AS client_name, c.address AS client_address, c.email AS client_email, c.bank_account, c.id AS client_id FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ?');
+    $stmt = $db->prepare('SELECT p.*, c.name AS client_name, c.address AS client_address, c.email AS client_email, c.bank_account, c.kvk AS client_kvk, c.client_category, c.id AS client_id FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ?');
     $stmt->execute([$projectId]);
     $project = $stmt->fetch();
 }
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice_email'])
     </div>
 
     <p style="color:#444;font-size:0.95rem;line-height:1.7;">Gelieve het bedrag van <strong>&euro;' . $amountInclBtw . '</strong> vóór <strong>' . $dueDate . '</strong> over te maken op:<br>
-    IBAN: <strong>NL00 BANK 0000 0000 00</strong> t.n.v. WebsiteVoorJou<br>
+    IBAN: <strong>NL 001570862B65</strong> t.n.v. WebsiteVoorJou<br>
     O.v.v. factuurnummer: <strong>' . htmlspecialchars($invoice['invoice_number']) . '</strong></p>
 
     <div style="background:linear-gradient(135deg,rgba(108,99,255,0.08),rgba(0,212,255,0.08));border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:20px;margin:24px 0;">
@@ -99,6 +99,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice_email'])
         } else {
             $error = 'Versturen mislukt. Controleer de mailconfiguratie.';
         }
+    }
+}
+
+// Factuur bewerken (bedrag, omschrijving, vervaldatum + klant KVK & rekeningnummer)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_invoice']) && $invoice) {
+    $amount     = (float)str_replace(',', '.', $_POST['amount'] ?? '0');
+    $desc       = trim($_POST['description'] ?? '');
+    $dueDate    = $_POST['due_date'] ?? '';
+    $bankAcc    = trim($_POST['bank_account'] ?? '');
+    $kvk        = trim($_POST['kvk'] ?? '');
+
+    if ($amount > 0) {
+        $db->prepare('UPDATE invoices SET amount = ?, description = ?, due_date = ? WHERE id = ?')
+           ->execute([$amount, $desc, $dueDate ?: null, $invoice['id']]);
+
+        // Update klantgegevens (bank + kvk)
+        $db->prepare('UPDATE clients SET bank_account = ?, kvk = ? WHERE id = ?')
+           ->execute([$bankAcc, $kvk, $project['client_id']]);
+
+        $success = 'Factuur en klantgegevens bijgewerkt.';
+        $invoice = $db->prepare('SELECT * FROM invoices WHERE id = ?');
+        $invoice->execute([$invoiceId]);
+        $invoice = $invoice->fetch();
+        // Herlaad project + klant
+        $stmt->execute([$projectId]);
+        $project = $stmt->fetch();
+    } else {
+        $error = 'Bedrag moet groter zijn dan 0.';
     }
 }
 
@@ -219,6 +247,45 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
       </form>
     </div>
 
+    <!-- Factuur bewerken -->
+    <div class="card" style="max-width:560px;margin-bottom:24px;">
+      <div class="card-header" style="cursor:pointer;" onclick="document.getElementById('edit-invoice-form').style.display=document.getElementById('edit-invoice-form').style.display==='none'?'block':'none'">
+        <h3 class="card-title">&#9998; Factuur bewerken</h3>
+      </div>
+      <div id="edit-invoice-form" style="display:none;">
+        <form method="post">
+          <input type="hidden" name="update_invoice" value="1">
+          <div class="form-group">
+            <label class="form-label">Bedrag (excl. BTW) *</label>
+            <input type="text" name="amount" class="form-control" value="<?= $invoice['amount'] ?>" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Omschrijving</label>
+            <textarea name="description" class="form-control" rows="3"><?= htmlspecialchars($invoice['description'] ?? '') ?></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vervaldatum</label>
+            <input type="date" name="due_date" class="form-control" value="<?= htmlspecialchars($invoice['due_date'] ?? '') ?>">
+          </div>
+          <div class="form-group">
+            <label class="form-label">IBAN rekeningnummer klant</label>
+            <input type="text" name="bank_account" class="form-control" placeholder="NL 001570862B65"
+              value="<?= htmlspecialchars($project['bank_account'] ?? '') ?>">
+          </div>
+          <?php if ($project['client_category'] === 'zakelijk'): ?>
+          <div class="form-group">
+            <label class="form-label">KVK-nummer klant</label>
+            <input type="text" name="kvk" class="form-control" placeholder="12345678"
+              value="<?= htmlspecialchars($project['client_kvk'] ?? '') ?>">
+          </div>
+          <?php else: ?>
+            <input type="hidden" name="kvk" value="<?= htmlspecialchars($project['client_kvk'] ?? '') ?>">
+          <?php endif; ?>
+          <button type="submit" class="btn btn-primary btn-sm">Opslaan</button>
+        </form>
+      </div>
+    </div>
+
     <!-- Status update -->
     <div class="card" style="max-width:400px;margin-bottom:24px;">
       <div class="card-header"><h3 class="card-title">Factuurstatus</h3></div>
@@ -265,14 +332,19 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
           <strong>WebsiteVoorJou</strong><br>
           Nederland<br>
           info@websitevoorjou.nl<br>
-          KvK: XXXXXXXX<br>
-          BTW: NL000000000B00
+          KvK: 24444475<br>
         </div>
         <div class="invoice-party">
           <h4>Aan</h4>
           <strong><?= htmlspecialchars($project['client_name']) ?></strong><br>
           <?= nl2br(htmlspecialchars($project['client_address'] ?? '')) ?><br>
           <?= htmlspecialchars($project['client_email'] ?? '') ?>
+          <?php if (!empty($project['client_kvk'])): ?>
+            <br>KvK: <?= htmlspecialchars($project['client_kvk']) ?>
+          <?php endif; ?>
+          <?php if (!empty($project['bank_account'])): ?>
+            <br>IBAN: <?= htmlspecialchars($project['bank_account']) ?>
+          <?php endif; ?>
         </div>
       </div>
 
@@ -307,7 +379,7 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
       </div>
 
       <div class="invoice-footer">
-        <p>Gelieve het bedrag van <strong>&euro;<?= number_format($invoice['amount'] * 1.21, 2, ',', '.') ?></strong> voor <?= $invoice['due_date'] ? formatDate($invoice['due_date']) : '30 dagen na factuurdatum' ?> over te maken op IBAN: <strong>NL00 BANK 0000 0000 00</strong> t.n.v. WebsiteVoorJou o.v.v. factuurnummer <strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong>.</p>
+        <p>Gelieve het bedrag van <strong>&euro;<?= number_format($invoice['amount'] * 1.21, 2, ',', '.') ?></strong> voor <?= $invoice['due_date'] ? formatDate($invoice['due_date']) : '30 dagen na factuurdatum' ?> over te maken op IBAN: <strong>NL 001570862B65</strong> t.n.v. WebsiteVoorJou o.v.v. factuurnummer <strong><?= htmlspecialchars($invoice['invoice_number']) ?></strong>.</p>
         <p style="margin-top:8px;">Bedankt voor uw vertrouwen in WebsiteVoorJou!</p>
       </div>
     </div>
