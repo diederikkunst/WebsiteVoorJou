@@ -359,7 +359,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .alert-warning  { background: rgba(255,179,0,0.1);  border: 1px solid rgba(255,179,0,0.2);  color: var(--warning); }
 
 /* ---- Status timeline ---- */
-.status-timeline { display: flex; align-items: center; gap: 0; overflow-x: auto; padding: 16px 0; }
+.status-timeline { display: flex; align-items: flex-start; gap: 0; overflow-x: auto; padding: 16px 0; }
 .timeline-step {
   display: flex; flex-direction: column; align-items: center;
   flex: 1; min-width: 100px; position: relative;
@@ -439,6 +439,33 @@ footer { background: var(--bg-2); border-top: 1px solid var(--border); padding: 
   .footer-grid { grid-template-columns: 1fr 1fr; }
   .contact-grid { grid-template-columns: 1fr; }
 }
+/* ---- Mobile topbar & hamburger ---- */
+.mobile-topbar {
+  display: none;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 56px; background: var(--bg-2); border-bottom: 1px solid var(--border);
+  align-items: center; padding: 0 16px; gap: 16px;
+}
+.mobile-topbar-brand {
+  font-size: 1rem; font-weight: 800;
+  background: var(--gradient); -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent; background-clip: text;
+}
+.sidebar-toggle {
+  background: none; border: none; cursor: pointer;
+  padding: 6px; display: flex; flex-direction: column; gap: 5px;
+}
+.sidebar-toggle span {
+  display: block; width: 22px; height: 2px;
+  background: var(--text); border-radius: 2px;
+  transition: var(--transition);
+}
+.sidebar-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5); z-index: 49;
+}
+.sidebar-overlay.open { display: block; }
+
 @media (max-width: 768px) {
   .navbar-nav { display: none; flex-direction: column; background: var(--bg-2); position: absolute; top: 100%; left: 0; right: 0; padding: 20px; border-bottom: 1px solid var(--border); }
   .navbar-nav.open { display: flex; }
@@ -448,9 +475,10 @@ footer { background: var(--bg-2); border-top: 1px solid var(--border); padding: 
   .hero-visual { margin-top: 40px; }
   .packages-grid { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
+  .mobile-topbar { display: flex; }
   .sidebar { transform: translateX(-100%); transition: var(--transition); }
   .sidebar.open { transform: translateX(0); }
-  .main-content { margin-left: 0; }
+  .main-content { margin-left: 0; padding-top: calc(56px + 24px); }
   .form-row { grid-template-columns: 1fr; }
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
 }

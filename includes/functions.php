@@ -78,9 +78,11 @@ function getProjectByToken(string $token): ?array {
 
 function nextInvoiceNumber(): string {
     $db = getDB();
-    $stmt = $db->query('SELECT COUNT(*) FROM invoices');
-    $count = (int)$stmt->fetchColumn();
-    return 'WVJ-' . date('Y') . '-' . str_pad($count + 1, 4, '0', STR_PAD_LEFT);
+    $year = date('Y');
+    $stmt = $db->prepare("SELECT MAX(CAST(SUBSTRING_INDEX(invoice_number, '-', -1) AS UNSIGNED)) FROM invoices WHERE invoice_number LIKE ?");
+    $stmt->execute(['WVJ-' . $year . '-%']);
+    $max = (int)$stmt->fetchColumn();
+    return 'WVJ-' . $year . '-' . str_pad($max + 1, 4, '0', STR_PAD_LEFT);
 }
 
 function saveUpload(array $file, string $subdir): ?string {
@@ -100,7 +102,7 @@ function saveUpload(array $file, string $subdir): ?string {
     return null;
 }
 
-function sendMail(string $to, string $subject, string $htmlBody, string $toName = ''): bool {
+function sendMail(string $to, string $subject, string $htmlBody, string $toName = '', string $type = 'overig'): bool {
     $host = MAIL_SMTP_HOST;
     $port = MAIL_SMTP_PORT;
     $user = MAIL_SMTP_USER;
@@ -170,10 +172,78 @@ function sendMail(string $to, string $subject, string $htmlBody, string $toName 
         $cmd('QUIT');
         fclose($sock);
 
-        return strpos($resp, '250') !== false;
+        $success = strpos($resp, '250') !== false;
+        logEmail($to, $toName, $subject, $type, $success ? 'verstuurd' : 'mislukt');
+        return $success;
 
     } catch (\Throwable $e) {
+        logEmail($to, $toName, $subject, $type, 'mislukt');
         return false;
+    }
+}
+
+function sendVerificationEmail(string $email, string $name, string $token): void {
+    $verifyUrl  = APP_URL . '/verify-email.php?token=' . $token;
+    $firstName  = explode(' ', $name)[0];
+
+    $html = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:\'Inter\',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:40px 0;">
+<tr><td align="center">
+<table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  <tr>
+    <td style="background:linear-gradient(135deg,#6C63FF 0%,#00D4FF 100%);padding:40px 48px;text-align:center;">
+      <div style="font-size:2rem;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">WebsiteVoorJou</div>
+      <div style="color:rgba(255,255,255,0.8);margin-top:8px;font-size:0.95rem;">Jouw website, razendsnel live</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:48px;">
+      <h2 style="margin:0 0 16px;color:#111827;font-size:1.5rem;font-weight:700;">Bevestig je e-mailadres</h2>
+      <p style="margin:0 0 16px;color:#4b5563;line-height:1.7;font-size:0.95rem;">Hoi ' . htmlspecialchars($firstName) . ',</p>
+      <p style="margin:0 0 28px;color:#4b5563;line-height:1.7;font-size:0.95rem;">Bedankt voor het aanmaken van je account bij WebsiteVoorJou! Klik op de knop hieronder om je e-mailadres te bevestigen en je account te activeren.</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="center" style="padding:8px 0 36px;">
+            <a href="' . $verifyUrl . '" style="display:inline-block;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#ffffff;text-decoration:none;padding:16px 48px;border-radius:10px;font-weight:700;font-size:1rem;letter-spacing:0.3px;">
+              Bevestig mijn account &#8594;
+            </a>
+          </td>
+        </tr>
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="background:#f8f7ff;border:1px solid #e5e3ff;border-radius:10px;padding:20px 24px;">
+            <p style="margin:0 0 8px;font-size:0.85rem;color:#6b7280;">Werkt de knop niet? Kopieer dan deze link:</p>
+            <p style="margin:0;font-size:0.8rem;color:#6C63FF;word-break:break-all;">' . $verifyUrl . '</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:28px 0 0;color:#9ca3af;font-size:0.82rem;line-height:1.6;">
+        Deze link is 24 uur geldig. Heb jij geen account aangemaakt bij WebsiteVoorJou? Dan kun je deze e-mail veilig negeren.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:24px 48px;text-align:center;">
+      <p style="margin:0;font-size:0.8rem;color:#9ca3af;">WebsiteVoorJou &bull; info@websitevoorjou.nl &bull; websitevoorjou.nl</p>
+    </td>
+  </tr>
+</table>
+</td></tr>
+</table>
+</body></html>';
+
+    sendMail($email, 'Bevestig je account — WebsiteVoorJou', $html, $name, 'accountbevestiging');
+}
+
+function logEmail(string $to, string $toName, string $subject, string $type, string $status): void {
+    try {
+        $db = getDB();
+        $db->prepare('INSERT INTO email_logs (to_email, to_name, subject, type, status) VALUES (?, ?, ?, ?, ?)')
+           ->execute([$to, $toName, $subject, $type, $status]);
+    } catch (\Throwable $e) {
+        // Logging mag nooit de hoofdflow breken
     }
 }
 

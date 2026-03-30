@@ -57,14 +57,16 @@ $stmt->execute([$email]);
 $user = $stmt->fetch();
 
 if (!$user) {
-    // Nieuw account aanmaken
-    $db->prepare('INSERT INTO users (name, email, password, role, is_active) VALUES (?, ?, ?, \'client\', 1)')
+    // Nieuw account aanmaken — Google verifieert e-mail zelf
+    $db->prepare('INSERT INTO users (name, email, password, role, is_active, email_verified) VALUES (?, ?, ?, \'client\', 1, 1)')
        ->execute([$name, $email, password_hash(generateToken(16), PASSWORD_DEFAULT)]);
     $userId = $db->lastInsertId();
 } else {
     $userId = $user['id'];
+    // Als account nog niet actief was (bijv. wachtte op e-mailbevestiging): activeer alsnog via Google
     if (!$user['is_active']) {
-        header('Location: /login.php?error=inactive'); exit;
+        $db->prepare('UPDATE users SET is_active = 1, email_verified = 1, email_verification_token = NULL WHERE id = ?')
+           ->execute([$userId]);
     }
 }
 

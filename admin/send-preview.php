@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
       </a>
     </div>
     ' . $screenshotHtml . '
-    <p style="color:#666;font-size:0.9rem;">Tevreden? Maak dan een account aan en we zorgen samen dat jouw website live gaat. Vragen of aanpassingen? Reageer gewoon op deze e-mail.</p>
+    <p style="color:#666;font-size:0.9rem;">Tevreden? <a href="https://websitevoorjou.nl/register.php" style="color:#6C63FF;font-weight:600;">Maak een account aan</a> of login op je <a href="https://websitevoorjou.nl/login.php" style="color:#6C63FF;font-weight:600;">bestaande account</a> en we zorgen samen dat jouw website live gaat. Vragen of aanpassingen? Reageer gewoon op deze e-mail.</p>
     <div style="background:#f4f4f8;border-radius:8px;padding:16px;margin-top:24px;">
       <p style="margin:0;font-size:0.85rem;color:#666;">
         <strong>Project:</strong> ' . htmlspecialchars($project['name']) . '<br>
@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
 </div>
 </body></html>';
 
-        if (sendMail($toEmail, $subject, $htmlBody, $toName)) {
+        if (sendMail($toEmail, $subject, $htmlBody, $toName, 'preview')) {
             $success = 'E-mail succesvol verstuurd naar ' . $toEmail . '!';
             // Update project status
             if ($project['status'] === 'in_behandeling') {
@@ -192,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
               </span>
             </div>
           <?php endif; ?>
-          <p style="color:#666;font-size:0.85rem;">Tevreden? Maak dan een account aan en we zorgen samen dat jouw website live gaat.</p>
+          <p style="color:#666;font-size:0.85rem;">Tevreden? <a href="https://websitevoorjou.nl/register.php" style="color:#6C63FF;font-weight:600;">Maak een account aan</a> of login op je <a href="https://websitevoorjou.nl/login.php" style="color:#6C63FF;font-weight:600;">bestaande account</a> en we zorgen samen dat jouw website live gaat.</p>
         </div>
       </div>
     </div>

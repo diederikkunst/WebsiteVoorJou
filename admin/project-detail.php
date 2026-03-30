@@ -20,6 +20,17 @@ $success = $error = '';
 if (isset($_GET['invoice_sent'])) {
     $success = 'Factuur succesvol verstuurd naar de klant. Projectstatus is bijgewerkt naar "Factuur gestuurd".';
 }
+if (isset($_GET['zip_ok'])) {
+    $success = 'ZIP succesvol aangemaakt van de preview en klaargezet als download.';
+}
+if (isset($_GET['zip_error'])) {
+    $errors = [
+        'geen_url'          => 'Geen preview-URL ingesteld voor dit project.',
+        'geen_ziparchive'   => 'PHP ZipArchive-extensie is niet beschikbaar op deze server.',
+        'mislukt'           => 'ZIP aanmaken mislukt. Controleer of de preview-URL bereikbaar is.',
+    ];
+    $error = $errors[$_GET['zip_error']] ?? 'ZIP aanmaken mislukt.';
+}
 
 // Update status + preview_url
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_project'])) {
@@ -104,12 +115,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_download_email']
 </div>
 </body></html>';
 
-        if (sendMail($toEmail, 'Je website staat klaar om te downloaden! — WebsiteVoorJou', $htmlBody, $project['client_name'])) {
+        if (sendMail($toEmail, 'Je website staat klaar om te downloaden! — WebsiteVoorJou', $htmlBody, $project['client_name'], 'download')) {
             $success = 'Download e-mail verstuurd naar ' . $toEmail . '!';
         } else {
             $error = 'Versturen mislukt. Controleer de mailconfiguratie.';
         }
     }
+}
+
+// Upload download-zip
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_download_zip'])) {
+    if (!empty($_FILES['download_zip']['name'])) {
+        $ext = strtolower(pathinfo($_FILES['download_zip']['name'], PATHINFO_EXTENSION));
+        if ($ext !== 'zip') {
+            $error = 'Alleen ZIP-bestanden zijn toegestaan.';
+        } else {
+            $dir = __DIR__ . '/../uploads/downloads/';
+            if (!is_dir($dir)) mkdir($dir, 0755, true);
+            $filename = bin2hex(random_bytes(16)) . '.zip';
+            if (move_uploaded_file($_FILES['download_zip']['tmp_name'], $dir . $filename)) {
+                // Verwijder oud bestand als dat er is
+                if (!empty($project['download_file'])) {
+                    $old = $dir . basename($project['download_file']);
+                    if (file_exists($old)) unlink($old);
+                }
+                $db->prepare('UPDATE projects SET download_file = ? WHERE id = ?')->execute([$filename, $projectId]);
+                $success = 'Download-zip geüpload.';
+                $stmt->execute([$projectId]);
+                $project = $stmt->fetch();
+            } else {
+                $error = 'Upload mislukt.';
+            }
+        }
+    } else {
+        $error = 'Selecteer een ZIP-bestand.';
+    }
+}
+
+// Verwijder download-zip
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_download_zip'])) {
+    if (!empty($project['download_file'])) {
+        $old = __DIR__ . '/../uploads/downloads/' . basename($project['download_file']);
+        if (file_exists($old)) unlink($old);
+    }
+    $db->prepare('UPDATE projects SET download_file = NULL WHERE id = ?')->execute([$projectId]);
+    $success = 'Download-zip verwijderd.';
+    $stmt->execute([$projectId]);
+    $project = $stmt->fetch();
 }
 
 if (isset($_GET['remove_employee'])) {
@@ -241,20 +293,13 @@ $currentIdx = array_search($project['status'], $statusList);
           </div>
           <div class="form-group">
             <label class="form-label">Download link</label>
-            <?php if (!empty($zipFiles)): ?>
-              <select name="download_url" class="form-control">
-                <option value="">— Kies een geüpload bestand —</option>
-                <?php foreach ($zipFiles as $zf): ?>
-                  <option value="<?= htmlspecialchars(APP_URL . '/uploads/' . $zf['filename']) ?>">
-                    <?= htmlspecialchars($zf['original_name']) ?>
-                  </option>
-                <?php endforeach; ?>
-              </select>
-              <p class="form-hint">Of typ een handmatige URL hieronder:</p>
-              <input type="url" name="download_url" class="form-control" style="margin-top:6px;" placeholder="https://...">
+            <?php $autoDownloadUrl = !empty($project['download_file']) ? APP_URL . '/portal/download.php?id=' . $projectId : ''; ?>
+            <input type="url" name="download_url" class="form-control" placeholder="https://..."
+              value="<?= htmlspecialchars($autoDownloadUrl) ?>" required>
+            <?php if ($autoDownloadUrl): ?>
+              <p class="form-hint">&#10003; Automatisch ingevuld via de beveiligde download-zip.</p>
             <?php else: ?>
-              <input type="url" name="download_url" class="form-control" placeholder="https://..." required>
-              <p class="form-hint">Upload eerst een ZIP-bestand bij de bestanden, of voer een externe link in.</p>
+              <p class="form-hint">Upload eerst een ZIP-bestand hieronder, of voer een externe link in.</p>
             <?php endif; ?>
           </div>
         </div>
@@ -414,6 +459,49 @@ $currentIdx = array_search($project['status'], $statusList);
       </div>
     </div>
     <?php endif; ?>
+
+    <!-- Download-zip voor klant -->
+    <div class="card" style="margin-top:24px;">
+      <div class="card-header"><h3 class="card-title">&#11015; Download-zip voor klant</h3></div>
+      <?php if (!empty($project['download_file'])): ?>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:12px 16px;background:rgba(0,230,118,0.07);border:1px solid rgba(0,230,118,0.2);border-radius:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.4rem;">&#128230;</span>
+            <div>
+              <div style="font-weight:600;"><?= htmlspecialchars(basename($project['download_file'])) ?></div>
+              <div style="font-size:0.8rem;color:var(--text-muted);">Klant kan dit downloaden na betaling</div>
+            </div>
+          </div>
+          <form method="post" style="margin:0;">
+            <input type="hidden" name="remove_download_zip" value="1">
+            <button type="submit" class="btn btn-sm btn-danger" data-confirm="Download-zip verwijderen?">&#10005; Verwijderen</button>
+          </form>
+        </div>
+      <?php else: ?>
+        <p style="color:var(--text-muted);margin-bottom:16px;">Nog geen download-zip geüpload.</p>
+      <?php endif; ?>
+      <?php if (!empty($project['preview_url'])): ?>
+      <form method="post" action="/admin/build-zip.php" style="margin-bottom:12px;">
+        <input type="hidden" name="project_id" value="<?= $projectId ?>">
+        <button type="submit" class="btn btn-outline btn-sm"
+          data-confirm="ZIP automatisch aanmaken van de preview-URL? Dit kan een minuut duren.">
+          &#9889; Automatisch ZIP maken van preview
+        </button>
+        <span style="font-size:0.8rem;color:var(--text-muted);margin-left:8px;">Haalt HTML, CSS, JS en afbeeldingen op van de preview-URL.</span>
+      </form>
+      <?php endif; ?>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="upload_download_zip" value="1">
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <div class="form-group flex-1" style="margin-bottom:0;">
+            <label class="form-label"><?= !empty($project['download_file']) ? 'Vervang ZIP' : 'Handmatig ZIP uploaden' ?></label>
+            <input type="file" name="download_zip" class="form-control" accept=".zip" required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm" style="margin-bottom:0;">Uploaden</button>
+        </div>
+        <p class="form-hint">Bestand wordt beveiligd opgeslagen. Alleen de ingelogde klant kan het downloaden na betaling.</p>
+      </form>
+    </div>
 
     <!-- Invoice -->
     <?php if ($invoice): ?>

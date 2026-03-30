@@ -221,6 +221,7 @@ $currentIdx = array_search($project['status'], $statusList);
         </div>
       </div>
       <a href="/logout.php" class="btn btn-outline btn-sm w-full" style="margin-top:8px;">Uitloggen</a>
+      <a href="/algemene-voorwaarden.php" style="display:block;text-align:center;margin-top:10px;font-size:0.75rem;color:var(--text-muted);">Algemene voorwaarden</a>
     </div>
   </aside>
 
@@ -425,6 +426,19 @@ $currentIdx = array_search($project['status'], $statusList);
       </div>
     </div>
     <?php endif; ?>
+    <?php endif; ?>
+
+    <!-- Download-knop na betaling -->
+    <?php if ($project['status'] === 'factuur_betaald' && !empty($project['download_file'])): ?>
+    <div class="card" style="margin-top:24px;border-color:var(--success);">
+      <div style="display:flex;gap:20px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+        <div>
+          <h3 style="margin-bottom:4px;">&#127881; Je website staat klaar!</h3>
+          <p>Je betaling is ontvangen en je website is klaar om te downloaden.</p>
+        </div>
+        <a href="/portal/download.php?id=<?= $projectId ?>" class="btn btn-primary">&#11015; Website downloaden</a>
+      </div>
+    </div>
     <?php endif; ?>
 
     <!-- Go-live opties na betaling -->

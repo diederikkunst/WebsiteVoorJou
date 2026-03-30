@@ -199,16 +199,27 @@ $previewUrl = htmlspecialchars($project['preview_url']);
     wmGrid.appendChild(row);
   }
 
-  // Detect if iframe was blocked by X-Frame-Options
+  // Detecteer of iframe geladen is via postMessage (betrouwbaarder dan onload)
   var iframeLoaded = false;
   var loadTimeout = setTimeout(function() {
     if (!iframeLoaded) showFallback();
-  }, 8000);
+  }, 20000);
 
+  window.addEventListener('message', function(e) {
+    if (e.data === 'preview_loaded') {
+      iframeLoaded = true;
+      clearTimeout(loadTimeout);
+      loading.style.display = 'none';
+    }
+  });
+
+  // onload als fallback (bijv. als proxy previewNotice toont)
   frame.onload = function() {
-    iframeLoaded = true;
-    clearTimeout(loadTimeout);
-    loading.style.display = 'none';
+    if (!iframeLoaded) {
+      iframeLoaded = true;
+      clearTimeout(loadTimeout);
+      loading.style.display = 'none';
+    }
   };
 
   frame.onerror = function() {

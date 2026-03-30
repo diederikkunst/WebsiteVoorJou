@@ -102,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         </div>
       </div>
       <a href="/logout.php" class="btn btn-outline btn-sm w-full" style="margin-top:8px;">Uitloggen</a>
+      <a href="/algemene-voorwaarden.php" style="display:block;text-align:center;margin-top:10px;font-size:0.75rem;color:var(--text-muted);">Algemene voorwaarden</a>
     </div>
   </aside>
 

@@ -22,9 +22,16 @@ if ($invoiceId) {
 }
 
 if ($projectId) {
-    $stmt = $db->prepare('SELECT p.*, c.name AS client_name, c.address AS client_address, c.email AS client_email, c.bank_account, c.kvk AS client_kvk, c.client_category, c.id AS client_id FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ?');
-    $stmt->execute([$projectId]);
-    $project = $stmt->fetch();
+    try {
+        $stmt = $db->prepare('SELECT p.*, c.name AS client_name, c.address AS client_address, c.email AS client_email, c.bank_account, c.kvk AS client_kvk, c.client_category, c.id AS client_id FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ?');
+        $stmt->execute([$projectId]);
+        $project = $stmt->fetch();
+    } catch (\PDOException $e) {
+        // Fallback als kvk/client_category kolommen nog niet bestaan in de database
+        $stmt = $db->prepare('SELECT p.*, c.name AS client_name, c.address AS client_address, c.email AS client_email, c.bank_account, NULL AS client_kvk, \'particulier\' AS client_category, c.id AS client_id FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ?');
+        $stmt->execute([$projectId]);
+        $project = $stmt->fetch();
+    }
 }
 
 if (!$project) { header('Location: /admin/projects.php'); exit; }
@@ -70,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice_email'])
     <div style="background:linear-gradient(135deg,rgba(108,99,255,0.08),rgba(0,212,255,0.08));border:1px solid rgba(108,99,255,0.2);border-radius:8px;padding:20px;margin:24px 0;">
       <h3 style="color:#111;font-size:1rem;margin:0 0 12px;">&#127881; Wat gebeurt er na betaling?</h3>
       <p style="color:#444;font-size:0.9rem;line-height:1.7;margin:0;">
-        Na ontvangst van je betaling kun je inloggen op je account via <a href="' . APP_URL . '/login.php" style="color:#6C63FF;">' . APP_URL . '/login.php</a> en je project goedkeuren.<br><br>
+        Na ontvangst van je betaling kun je inloggen op je account via <a href="' . APP_URL . '/login.php" style="color:#6C63FF;">' . APP_URL . '/login.php</a> en je project bekijken. Heb je nog vragen, dan kun je die ook via je account stellen.<br><br>
         Daarna heb je twee opties:<br>
         &bull; <strong>Samen online plaatsen</strong> — wij nemen contact op via je e-mail of telefoonnummer om samen de website live te zetten.<br>
         &bull; <strong>Zelf plaatsen</strong> — we zetten de bestanden klaar zodat je de website zelf kunt uploaden.<br><br>

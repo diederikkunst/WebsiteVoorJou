@@ -15,10 +15,34 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ---- Sidebar toggle (mobile) ----
-  const sidebarToggle = document.querySelector('.sidebar-toggle');
   const sidebar = document.querySelector('.sidebar');
-  if (sidebarToggle && sidebar) {
-    sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
+  if (sidebar) {
+    // Injecteer mobiele topbalk als die er nog niet is
+    if (!document.querySelector('.mobile-topbar')) {
+      const brand = sidebar.querySelector('.sidebar-brand');
+      const brandText = brand ? brand.textContent : 'WebsiteVoorJou';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      document.body.prepend(overlay);
+
+      const topbar = document.createElement('div');
+      topbar.className = 'mobile-topbar';
+      topbar.innerHTML = `<button class="sidebar-toggle" aria-label="Menu openen"><span></span><span></span><span></span></button><div class="mobile-topbar-brand">${brandText}</div>`;
+      document.body.prepend(topbar);
+    }
+
+    const toggle  = document.querySelector('.sidebar-toggle');
+    const overlay = document.querySelector('.sidebar-overlay');
+
+    const openSidebar  = () => { sidebar.classList.add('open');    overlay.classList.add('open'); document.body.style.overflow = 'hidden'; };
+    const closeSidebar = () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); document.body.style.overflow = ''; };
+
+    if (toggle)  toggle.addEventListener('click', () => sidebar.classList.contains('open') ? closeSidebar() : openSidebar());
+    if (overlay) overlay.addEventListener('click', closeSidebar);
+
+    // Sluit sidebar na klik op een link (mobile)
+    sidebar.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { if (window.innerWidth <= 768) closeSidebar(); }));
   }
 
   // ---- FAQ accordion ----

@@ -8,6 +8,9 @@ CREATE TABLE users (
     password VARCHAR(255) NOT NULL,
     role ENUM('admin','employee','client') NOT NULL DEFAULT 'client',
     is_active TINYINT(1) DEFAULT 1,
+    email_verified TINYINT(1) DEFAULT 0,
+    email_verification_token VARCHAR(64) NULL,
+    email_verification_sent_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -122,6 +125,16 @@ CREATE TABLE question_replies (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE email_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    to_email VARCHAR(150) NOT NULL,
+    to_name VARCHAR(150) DEFAULT '',
+    subject VARCHAR(255) NOT NULL,
+    type VARCHAR(50) DEFAULT 'overig',
+    status ENUM('verstuurd','mislukt') NOT NULL DEFAULT 'verstuurd',
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Default admin user (password: Admin@123 - change immediately!)

@@ -69,7 +69,7 @@ $ch = curl_init($targetUrl);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HEADER         => true,
-    CURLOPT_TIMEOUT        => 20,
+    CURLOPT_TIMEOUT        => 30,
     CURLOPT_FOLLOWLOCATION => true,
     CURLOPT_MAXREDIRS      => 5,
     CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
@@ -112,28 +112,36 @@ $baseTag = '<base href="' . htmlspecialchars($finalUrl, ENT_QUOTES) . '" target=
 // Injecteer bescherming: blokkeer rechtermuisknop, sneltoetsen én route links via proxy
 $proxyBase = '/preview-proxy.php?token=' . urlencode($token) . '&url=';
 $protection = '<script>(function(){' .
+    // Laat parent weten dat preview geladen is
+    'window.parent.postMessage("preview_loaded","*");' .
     'var PROXY="' . addslashes($proxyBase) . '";' .
     // Onderschep alle link-kliks en route via proxy
     'document.addEventListener("click",function(e){' .
         'var a=e.target.closest("a");' .
         'if(!a)return;' .
-        'e.preventDefault();' .
         'var h=a.getAttribute("href");' .
-        'if(!h||h.startsWith("javascript:"))return;' .
-        // Anchor-only links (#sectie) gewoon scrollen, niet door proxy
+        // Negeer lege hrefs, #, javascript:, mailto:, tel:
+        'if(!h||h==="#"||/^(javascript:|mailto:|tel:)/i.test(h))return;' .
+        'e.preventDefault();' .
+        // Pure anchor → scroll op huidige pagina
         'if(h.startsWith("#")){' .
-            'var el=document.getElementById(h.slice(1))||document.querySelector("[name=\'"+h.slice(1)+"\']");' .
+            'var id=h.slice(1);' .
+            'var el=document.getElementById(id)||document.querySelector("[name=\'"+id+"\']");' .
             'if(el)el.scrollIntoView({behavior:"smooth"});' .
             'return;' .
         '}' .
-        'var abs=new URL(h,document.baseURI).href;' .
-        // Als de URL een fragment heeft naar dezelfde pagina, alleen scrollen
-        'var fragOnly=abs.split("#");' .
-        'if(fragOnly.length>1&&fragOnly[0]===window.location.href.split("?")[0]){' .
-            'var el2=document.getElementById(fragOnly[1]);' .
-            'if(el2){el2.scrollIntoView({behavior:"smooth"});return;}' .
-        '}' .
-        'window.location.href=PROXY+encodeURIComponent(abs);' .
+        'try{' .
+            'var abs=new URL(h,document.baseURI).href;' .
+            'var absO=new URL(abs);' .
+            'var baseO=new URL(document.baseURI);' .
+            // Zelfde pagina + fragment → scroll, ga niet door proxy
+            'if(absO.origin===baseO.origin&&absO.pathname===baseO.pathname&&absO.hash){' .
+                'var target=document.querySelector(absO.hash);' .
+                'if(target){target.scrollIntoView({behavior:"smooth"});return;}' .
+            '}' .
+            // Alles andere → door proxy
+            'window.location.href=PROXY+encodeURIComponent(abs);' .
+        '}catch(ex){}' .
     '});' .
     // Blokkeer rechtermuisknop en sneltoetsen
     'document.addEventListener("contextmenu",function(e){e.preventDefault();});' .

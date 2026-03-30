@@ -69,6 +69,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
                     exit;
                 }
 
+                // Notificatie naar admin
+                $adminHtml = '<p>Nieuwe contactaanvraag via websitevoorjou.nl:</p>'
+                    . '<ul>'
+                    . '<li><strong>Naam:</strong> ' . htmlspecialchars($name) . '</li>'
+                    . '<li><strong>E-mail:</strong> ' . htmlspecialchars($email) . '</li>'
+                    . ($phone   ? '<li><strong>Telefoon:</strong> ' . htmlspecialchars($phone) . '</li>' : '')
+                    . ($company ? '<li><strong>Bedrijf:</strong> ' . htmlspecialchars($company) . '</li>' : '')
+                    . ($currentWebsite ? '<li><strong>Huidige website:</strong> ' . htmlspecialchars($currentWebsite) . '</li>' : '')
+                    . '<li><strong>Bericht:</strong><br>' . nl2br(htmlspecialchars($message)) . '</li>'
+                    . '</ul>'
+                    . '<p><a href="' . APP_URL . '/admin/contacts.php">Bekijk aanvraag in admin</a></p>';
+                sendMail(MAIL_FROM, 'Nieuwe aanvraag: ' . $name, $adminHtml, 'WebsiteVoorJou', 'admin_notificatie');
+
                 $success = 'Bedankt! We nemen binnen 2 werkdagen contact met je op.';
             }
         } catch (Exception $e) {
@@ -229,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
         <p class="package-desc">Website concept zonder verplichtingen — kijk wat er mogelijk is voor jouw bedrijf.</p>
         <ul class="package-features">
           <li>Persoonlijk website-concept op maat</li>
-          <li>Preview op xxxxx.websitevoorjou.nl</li>
+          <li>Preview van je website</li>
           <li>Klaar binnen enkele werkdagen</li>
           <li>Geen creditcard nodig</li>
           <li>Vrijblijvend bekijken</li>
@@ -249,8 +262,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
           <li>Alles uit Brons</li>
           <li>Live op jouw eigen domein</li>
           <li>Professionele hosting-setup</li>
-          <li>SEO-basis geoptimaliseerd</li>
-          <li>3 maanden gratis support</li>
         </ul>
         <div class="package-cta">
           <a href="#contact" class="btn btn-outline w-full">Kies Zilver</a>
@@ -269,8 +280,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
           <li>Volledig CMS — zelf alles aanpassen</li>
           <li>Blog / nieuws module</li>
           <li>Contactformulieren</li>
-          <li>Analytics dashboard</li>
-          <li>6 maanden gratis support</li>
         </ul>
         <div class="package-cta">
           <a href="#contact" class="btn btn-primary w-full">Kies Goud</a>
@@ -319,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
         <div class="step-number">2</div>
         <div class="step-content">
           <h3>Ontvang je gratis preview</h3>
-          <p>Binnen enkele werkdagen staat er een gepersonaliseerde website voor je klaar op <strong>xxxxx.websitevoorjou.nl</strong>. Volledig afgestemd op jouw bedrijf en branche.</p>
+          <p>Binnen enkele werkdagen staat er een gepersonaliseerde website voor je klaar. Volledig afgestemd op jouw bedrijf en branche.</p>
         </div>
       </div>
       <div class="step">
@@ -548,6 +557,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
           <li><a href="#hoe-het-werkt">Hoe het werkt</a></li>
           <li><a href="#faq">FAQ</a></li>
           <li><a href="#contact">Contact</a></li>
+          <li><a href="/algemene-voorwaarden.php">Algemene voorwaarden</a></li>
         </ul>
       </div>
       <div>

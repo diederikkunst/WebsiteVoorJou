@@ -4,6 +4,17 @@ $current = basename($_SERVER['PHP_SELF']);
 $dir     = basename(dirname($_SERVER['PHP_SELF']));
 $isAdmin = $user['role'] === 'admin';
 ?>
+<!-- Mobiele topbalk -->
+<div class="mobile-topbar">
+  <button class="sidebar-toggle" aria-label="Menu openen">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="mobile-topbar-brand">WebsiteVoorJou</div>
+</div>
+
+<!-- Overlay -->
+<div class="sidebar-overlay"></div>
+
 <aside class="sidebar">
   <div class="sidebar-brand">WebsiteVoorJou</div>
 
@@ -24,6 +35,7 @@ $isAdmin = $user['role'] === 'admin';
   <div class="sidebar-section">Financieel</div>
   <ul class="sidebar-nav">
     <li><a href="/admin/invoices.php" <?= $current === 'invoices.php' || $current === 'invoice.php' ? 'class="active"' : '' ?>><span class="nav-icon">&#128195;</span> Facturen</a></li>
+    <li><a href="/admin/emails.php" <?= $current === 'emails.php' ? 'class="active"' : '' ?>><span class="nav-icon">&#128231;</span> E-maillog</a></li>
   </ul>
 
   <?php if ($isAdmin): ?>

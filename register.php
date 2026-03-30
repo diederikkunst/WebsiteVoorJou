@@ -31,29 +31,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $db = getDB();
 
-        $check = $db->prepare('SELECT id FROM users WHERE email = ?');
-        $check->execute([$email]);
-        if ($check->fetch()) {
-            $error = 'Dit e-mailadres is al in gebruik. <a href="/login.php">Inloggen?</a>';
+        // Stap 1: blokkeer alleen als e-mail al bestaat als bevestigde klant (type=client)
+        $clientCheck = $db->prepare("SELECT id FROM clients WHERE email = ? AND type = 'client' LIMIT 1");
+        $clientCheck->execute([$email]);
+        if ($clientCheck->fetch()) {
+            $error = 'Dit e-mailadres is al gekoppeld aan een klantaccount. <a href="/login.php">Inloggen?</a>';
         } else {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
+            // Stap 2: zoek bestaande lead op basis van e-mail
+            $leadStmt = $db->prepare("SELECT * FROM clients WHERE email = ? AND type = 'lead' LIMIT 1");
+            $leadStmt->execute([$email]);
+            $existingLead = $leadStmt->fetch();
 
-            // Create user
-            $db->prepare('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, \'client\')')
-               ->execute([$name, $email, $hash]);
-            $userId = $db->lastInsertId();
+            // Stap 3: zoek bestaande user op basis van e-mail
+            $userStmt = $db->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
+            $userStmt->execute([$email]);
+            $existingUser = $userStmt->fetch();
 
-            // Create client record (type = lead totdat admin omzet naar client)
-            $db->prepare('INSERT INTO clients (user_id, type, name, email, phone) VALUES (?, \'lead\', ?, ?, ?)')
-               ->execute([$userId, $company ?: $name, $email, $phone]);
+            $hash  = password_hash($password, PASSWORD_DEFAULT);
+            $token = bin2hex(random_bytes(32));
 
-            // Auto login
-            login($email, $password);
-            header('Location: /portal/dashboard.php?welcome=1');
-            exit;
+            if ($existingUser) {
+                // User bestaat al (bijv. via contactformulier aangemaakt) — update gegevens en stuur nieuwe verificatiemail
+                $db->prepare('UPDATE users SET name = ?, password = ?, is_active = 0, email_verified = 0, email_verification_token = ?, email_verification_sent_at = NOW() WHERE id = ?')
+                   ->execute([$name, $hash, $token, $existingUser['id']]);
+                $userId = $existingUser['id'];
+            } else {
+                // Nieuwe user aanmaken — inactief tot bevestiging
+                $db->prepare('INSERT INTO users (name, email, password, role, is_active, email_verified, email_verification_token, email_verification_sent_at) VALUES (?, ?, ?, \'client\', 0, 0, ?, NOW())')
+                   ->execute([$name, $email, $hash, $token]);
+                $userId = $db->lastInsertId();
+            }
+
+            if ($existingLead) {
+                // Koppel aan bestaande lead + update gegevens — lead blijft 'lead' tot na e-mailbevestiging
+                $updateName  = ($company ?: $name) ?: $existingLead['name'];
+                $updatePhone = $phone ?: $existingLead['phone'];
+                $db->prepare('UPDATE clients SET user_id = ?, name = ?, phone = ? WHERE id = ?')
+                   ->execute([$userId, $updateName, $updatePhone, $existingLead['id']]);
+            } else {
+                // Geen lead gevonden — maak nieuw klantprofiel aan
+                $db->prepare('INSERT INTO clients (user_id, type, name, email, phone) VALUES (?, \'lead\', ?, ?, ?)')
+                   ->execute([$userId, $company ?: $name, $email, $phone]);
+            }
+
+            sendVerificationEmail($email, $name, $token);
+
+            // Notificatie naar admin
+            $adminHtml = '<p>Nieuwe aanmelding op WebsiteVoorJou:</p>'
+                . '<ul><li><strong>Naam:</strong> ' . htmlspecialchars($name) . '</li>'
+                . '<li><strong>E-mail:</strong> ' . htmlspecialchars($email) . '</li>'
+                . ($phone ? '<li><strong>Telefoon:</strong> ' . htmlspecialchars($phone) . '</li>' : '')
+                . ($company ? '<li><strong>Bedrijf:</strong> ' . htmlspecialchars($company) . '</li>' : '')
+                . ($existingLead ? '<li><strong>Gekoppeld aan bestaande lead</strong></li>' : '')
+                . '</ul>';
+            sendMail(MAIL_FROM, 'Nieuwe aanmelding: ' . $name, $adminHtml, 'WebsiteVoorJou', 'admin_notificatie');
+
+            $success = $existingLead ? 'sent_lead' : 'sent';
         }
     }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="nl">
@@ -75,50 +112,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="register-wrap">
     <div class="register-logo">WebsiteVoorJou</div>
     <div class="register-card">
-      <h2 style="margin-bottom:4px;">Account aanmaken</h2>
-      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:24px;">Maak een account aan om je projecten te beheren.</p>
 
-      <?php if ($error): ?>
-        <div class="alert alert-danger">&#10007; <?= $error ?></div>
+      <?php if (in_array($success, ['sent', 'resent', 'sent_lead'])): ?>
+        <div style="text-align:center;padding:16px 0;">
+          <div style="font-size:3rem;margin-bottom:16px;">&#9993;</div>
+          <h2 style="margin-bottom:8px;">Check je inbox!</h2>
+          <p style="color:var(--text-muted);font-size:0.95rem;line-height:1.6;">
+            We hebben een bevestigingslink verstuurd naar
+            <strong><?= htmlspecialchars($_POST['email'] ?? '') ?></strong>.<br>
+            Klik op de link in de e-mail om je account te activeren.
+            <?php if ($success === 'sent_lead'): ?>
+              <br><span style="font-size:0.85rem;margin-top:8px;display:inline-block;">Je bestaande aanvraag en projecten worden automatisch aan je account gekoppeld.</span>
+            <?php endif; ?>
+          </p>
+          <p style="margin-top:20px;font-size:0.85rem;color:var(--text-muted);">Geen mail ontvangen? Controleer je spamfolder.</p>
+        </div>
+      <?php else: ?>
+
+        <h2 style="margin-bottom:4px;">Account aanmaken</h2>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:24px;">Maak een account aan om je projecten te beheren.</p>
+
+        <?php if ($error): ?>
+          <div class="alert alert-danger">&#10007; <?= $error ?></div>
+        <?php endif; ?>
+
+        <form method="post">
+          <div class="form-group">
+            <label class="form-label">Jouw naam *</label>
+            <input type="text" name="name" class="form-control" placeholder="Jan de Vries" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>" required autofocus>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bedrijfsnaam</label>
+            <input type="text" name="company" class="form-control" placeholder="Jouw Bedrijf B.V." value="<?= htmlspecialchars($_POST['company'] ?? '') ?>">
+            <p class="form-hint">Laat leeg als je geen bedrijf hebt.</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mailadres *</label>
+            <input type="email" name="email" class="form-control" placeholder="jan@bedrijf.nl" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Telefoonnummer</label>
+            <input type="tel" name="phone" class="form-control" placeholder="+31 6 12345678" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Wachtwoord *</label>
+              <input type="password" name="password" class="form-control" placeholder="Minimaal 8 tekens" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Herhaal wachtwoord *</label>
+              <input type="password" name="confirm" class="form-control" placeholder="••••••••" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-full" style="margin-top:8px;">
+            Account aanmaken &#8594;
+          </button>
+        </form>
+
+        <div class="divider"></div>
+        <p style="text-align:center;font-size:0.9rem;color:var(--text-muted);">
+          Al een account? <a href="/login.php">Inloggen</a>
+        </p>
+
       <?php endif; ?>
-
-      <form method="post">
-        <div class="form-group">
-          <label class="form-label">Jouw naam *</label>
-          <input type="text" name="name" class="form-control" placeholder="Jan de Vries" value="<?= htmlspecialchars($_POST['name'] ?? '') ?>" required autofocus>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Bedrijfsnaam</label>
-          <input type="text" name="company" class="form-control" placeholder="Jouw Bedrijf B.V." value="<?= htmlspecialchars($_POST['company'] ?? '') ?>">
-          <p class="form-hint">Laat leeg als je geen bedrijf hebt.</p>
-        </div>
-        <div class="form-group">
-          <label class="form-label">E-mailadres *</label>
-          <input type="email" name="email" class="form-control" placeholder="jan@bedrijf.nl" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Telefoonnummer</label>
-          <input type="tel" name="phone" class="form-control" placeholder="+31 6 12345678" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Wachtwoord *</label>
-            <input type="password" name="password" class="form-control" placeholder="Minimaal 8 tekens" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Herhaal wachtwoord *</label>
-            <input type="password" name="confirm" class="form-control" placeholder="••••••••" required>
-          </div>
-        </div>
-        <button type="submit" class="btn btn-primary w-full" style="margin-top:8px;">
-          Account aanmaken &#8594;
-        </button>
-      </form>
-
-      <div class="divider"></div>
-      <p style="text-align:center;font-size:0.9rem;color:var(--text-muted);">
-        Al een account? <a href="/login.php">Inloggen</a>
-      </p>
     </div>
   </div>
   <script src="/assets/js/main.js"></script>
