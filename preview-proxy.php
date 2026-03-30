@@ -21,13 +21,12 @@ $targetUrl = $baseUrl;
 
 // Als er een specifieke sub-pagina gevraagd wordt, valideer dat het dezelfde host is
 if (!empty($_GET['url'])) {
-    $requested    = $_GET['url'];
-    $allowedHost  = parse_url($baseUrl, PHP_URL_HOST);
+    $requested     = $_GET['url'];
+    $allowedHost   = parse_url($baseUrl, PHP_URL_HOST);
     $requestedHost = parse_url($requested, PHP_URL_HOST);
     if ($requestedHost === $allowedHost) {
         $targetUrl = $requested;
     } else {
-        // Extern domein — toon melding
         header('Content-Type: text/html; charset=UTF-8');
         exit(previewNotice());
     }
@@ -50,14 +49,9 @@ function previewNotice(): string {
     </body></html>';
 }
 
-// Debug checks
 if (!function_exists('curl_init')) {
     http_response_code(500);
     exit('Fout: PHP curl-extensie is niet beschikbaar op deze server.');
-}
-if (empty($targetUrl)) {
-    http_response_code(500);
-    exit('Fout: geen preview-URL ingesteld voor dit project.');
 }
 if (!filter_var($targetUrl, FILTER_VALIDATE_URL)) {
     http_response_code(500);
@@ -75,7 +69,7 @@ curl_setopt_array($ch, [
     CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
     CURLOPT_SSL_VERIFYPEER => false,
     CURLOPT_SSL_VERIFYHOST => 0,
-    CURLOPT_ENCODING       => '', // accepteer gzip/br automatisch
+    CURLOPT_ENCODING       => '',
 ]);
 
 $response    = curl_exec($ch);
@@ -98,51 +92,109 @@ if ($httpCode >= 400) {
 
 $body = substr($response, $headerSize);
 
-// Verwijder HTML-commentaar (maakt source minder leesbaar)
+// Verwijder HTML-commentaar
 $body = preg_replace('/<!--(?!\[if).*?-->/s', '', $body);
 
-// Verwijder security meta-tags die CSS/JS van originele server blokkeren
+// Verwijder security meta-tags
 $body = preg_replace('/<meta[^>]+http-equiv=["\']X-Frame-Options["\'][^>]*>/i', '', $body);
 $body = preg_replace('/<meta[^>]+http-equiv=["\']Content-Security-Policy["\'][^>]*>/i', '', $body);
 $body = preg_replace('/<meta[^>]+http-equiv=["\']X-Content-Type-Options["\'][^>]*>/i', '', $body);
 
-// Zorg dat relatieve URLs kloppen via een <base> tag
+// ---- Herschrijf alle <a href="..."> direct in PHP -----------------------
+// Zo werken links ook als de site eigen JS gebruikt voor navigatie.
+
+$proxyBase  = APP_URL . '/preview-proxy.php?token=' . urlencode($token) . '&url=';
+$siteHost   = parse_url($finalUrl, PHP_URL_HOST);
+$siteScheme = parse_url($finalUrl, PHP_URL_SCHEME) ?: 'https';
+$sitePath   = parse_url($finalUrl, PHP_URL_PATH) ?? '/';
+
+$body = preg_replace_callback('/<a(\s[^>]*)>/i', function ($m) use ($proxyBase, $finalUrl, $siteHost, $siteScheme, $sitePath) {
+    $inner = $m[1];
+
+    return preg_replace_callback(
+        '/(\bhref=)(["\'])([^"\']*)\2/i',
+        function ($hm) use ($proxyBase, $finalUrl, $siteHost, $siteScheme, $sitePath) {
+            $eq    = $hm[1];
+            $q     = $hm[2];
+            $href  = $hm[3];
+
+            // Laat speciale hrefs ongemoeid
+            if ($href === '' || $href === '#') return $hm[0];
+            if (preg_match('/^(javascript:|mailto:|tel:|data:)/i', $href)) return $hm[0];
+
+            // Pure anchor (#sectie) → ongewijzigd laten, JS scrollt dit af
+            if ($href[0] === '#') return $hm[0];
+
+            // Maak absoluut
+            if (preg_match('#^https?://#i', $href)) {
+                $abs = $href;
+            } elseif (str_starts_with($href, '//')) {
+                $abs = $siteScheme . ':' . $href;
+            } elseif ($href[0] === '/') {
+                $abs = $siteScheme . '://' . $siteHost . $href;
+            } else {
+                // Relatief pad → los op t.o.v. huidige pagina
+                $base = preg_replace('#/[^/]*$#', '/', $finalUrl);
+                // Verwijder query/fragment van base
+                $base = preg_replace('/[?#].*$/', '', $base);
+                $abs  = rtrim($base, '/') . '/' . $href;
+            }
+
+            $absHost = parse_url($abs, PHP_URL_HOST);
+
+            // Extern domein → ongemoeid (proxy-JS toont melding als erop geklikt wordt)
+            if ($absHost !== $siteHost) return $hm[0];
+
+            // Zelfde pagina + fragment → alleen fragment bewaren zodat browser scrollt
+            $absPath = parse_url($abs, PHP_URL_PATH) ?? '/';
+            $absFrag = parse_url($abs, PHP_URL_FRAGMENT);
+            if ($absPath === $sitePath && $absFrag) {
+                return $eq . $q . '#' . $absFrag . $q;
+            }
+
+            // Alle andere interne links → via proxy
+            return $eq . $q . htmlspecialchars($proxyBase . urlencode($abs), ENT_QUOTES) . $q;
+        },
+        '<a' . $inner . '>'
+    );
+}, $body);
+
+// ---- <base> tag + injecteer JS ------------------------------------------
+
 $baseTag = '<base href="' . htmlspecialchars($finalUrl, ENT_QUOTES) . '" target="_self">';
 
-// Injecteer bescherming: blokkeer rechtermuisknop, sneltoetsen én route links via proxy
-$proxyBase = '/preview-proxy.php?token=' . urlencode($token) . '&url=';
 $protection = '<script>(function(){' .
-    // Laat parent weten dat preview geladen is
     'window.parent.postMessage("preview_loaded","*");' .
     'var PROXY="' . addslashes($proxyBase) . '";' .
-    // Onderschep alle link-kliks en route via proxy
+
+    // MutationObserver: herschrijf hrefs in dynamisch geladen elementen (bijv. mobiel menu)
+    'function fixLinks(root){' .
+        '(root.querySelectorAll?root.querySelectorAll("a[href]"):[]).forEach(function(a){' .
+            'var h=a.getAttribute("href");' .
+            'if(!h||h==="#"||h.startsWith("#")||h.startsWith(PROXY)||/^(javascript:|mailto:|tel:|data:)/i.test(h))return;' .
+            'try{' .
+                'var abs=new URL(h,document.baseURI).href;' .
+                'a.setAttribute("href",PROXY+encodeURIComponent(abs));' .
+            '}catch(e){}' .
+        '});' .
+    '}' .
+    'document.addEventListener("DOMContentLoaded",function(){fixLinks(document);});' .
+    'new MutationObserver(function(ms){' .
+        'ms.forEach(function(m){' .
+            'm.addedNodes.forEach(function(n){if(n.nodeType===1){fixLinks(n);}});' .
+        '});' .
+    '}).observe(document.documentElement,{childList:true,subtree:true});' .
+
+    // Klik-handler als fallback voor anchor-links (#sectie scrollen)
     'document.addEventListener("click",function(e){' .
-        'var a=e.target.closest("a");' .
-        'if(!a)return;' .
+        'var a=e.target.closest("a");if(!a)return;' .
         'var h=a.getAttribute("href");' .
-        // Negeer lege hrefs, #, javascript:, mailto:, tel:
-        'if(!h||h==="#"||/^(javascript:|mailto:|tel:)/i.test(h))return;' .
+        'if(!h||!h.startsWith("#")||h==="#")return;' .
         'e.preventDefault();' .
-        // Pure anchor → scroll op huidige pagina
-        'if(h.startsWith("#")){' .
-            'var id=h.slice(1);' .
-            'var el=document.getElementById(id)||document.querySelector("[name=\'"+id+"\']");' .
-            'if(el)el.scrollIntoView({behavior:"smooth"});' .
-            'return;' .
-        '}' .
-        'try{' .
-            'var abs=new URL(h,document.baseURI).href;' .
-            'var absO=new URL(abs);' .
-            'var baseO=new URL(document.baseURI);' .
-            // Zelfde pagina + fragment → scroll, ga niet door proxy
-            'if(absO.origin===baseO.origin&&absO.pathname===baseO.pathname&&absO.hash){' .
-                'var target=document.querySelector(absO.hash);' .
-                'if(target){target.scrollIntoView({behavior:"smooth"});return;}' .
-            '}' .
-            // Alles andere → door proxy
-            'window.location.href=PROXY+encodeURIComponent(abs);' .
-        '}catch(ex){}' .
+        'var el=document.getElementById(h.slice(1))||document.querySelector("[name=\'"+h.slice(1)+"\']");' .
+        'if(el)el.scrollIntoView({behavior:"smooth"});' .
     '});' .
+
     // Blokkeer rechtermuisknop en sneltoetsen
     'document.addEventListener("contextmenu",function(e){e.preventDefault();});' .
     'document.addEventListener("selectstart",function(e){e.preventDefault();});' .

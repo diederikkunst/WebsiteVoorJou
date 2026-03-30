@@ -155,7 +155,7 @@ $previewUrl = htmlspecialchars($project['preview_url']);
   <div class="preview-wrap" id="previewWrap">
 
     <!-- Iframe via proxy (omzeilt X-Frame-Options) -->
-    <iframe id="previewFrame" src="/preview-proxy.php?token=<?= urlencode($token) ?>" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+    <iframe id="previewFrame" src="/preview-proxy.php?token=<?= urlencode($token) ?>"></iframe>
 
     <!-- Screenshot fallback -->
     <div id="screenshotFallback">
