@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
       <li><a href="#faq">FAQ</a></li>
       <li><a href="#contact">Contact</a></li>
       <li><a href="/login.php" class="btn btn-outline btn-sm">Inloggen</a></li>
-      <li><a href="/register.php" class="btn btn-primary btn-sm">Account aanmaken</a></li>
+      <li><a href="/register.php" class="btn btn-primary btn-sm" style="color:#fff;">Account aanmaken</a></li>
     </ul>
     <button class="navbar-toggle" aria-label="Menu">
       <span></span><span></span><span></span>

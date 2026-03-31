@@ -336,9 +336,11 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
       <div class="invoice-parties">
         <div class="invoice-party">
           <h4>Van</h4>
-          <strong>WebsiteVoorJou</strong><br>
+          <strong>KunstIT</strong><br>
+          Goudkruid 78<br>
+          3068SZ Rotterdam<br>
           Nederland<br>
-          info@websitevoorjou.nl<br>
+          BTW: NL 001570862B65<br>
           KvK: 24444475<br>
         </div>
         <div class="invoice-party">
