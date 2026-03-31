@@ -5,6 +5,16 @@ require_once __DIR__ . '/includes/db.php';
 $success = '';
 $error   = '';
 
+// Haal portfolio-URLs op uit settings
+$portfolioSites = [];
+try {
+    $db2 = getDB();
+    $rows = $db2->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('portfolio_url_1','portfolio_url_2','portfolio_url_3') ORDER BY setting_key")->fetchAll();
+    foreach ($rows as $r) {
+        if (!empty($r['setting_value'])) $portfolioSites[] = $r['setting_value'];
+    }
+} catch (\Throwable $e) { /* tabel bestaat nog niet */ }
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
     require_once __DIR__ . '/includes/functions.php';
     require_once __DIR__ . '/includes/auth.php';
@@ -111,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
     <a href="/" class="navbar-brand">WebsiteVoorJou</a>
     <ul class="navbar-nav">
       <li><a href="#over-ons">Over ons</a></li>
+      <li><a href="#portfolio">Portfolio</a></li>
       <li><a href="#pakketten">Pakketten</a></li>
       <li><a href="#hoe-het-werkt">Hoe het werkt</a></li>
       <li><a href="#faq">FAQ</a></li>
@@ -224,6 +235,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
     </div>
   </div>
 </section>
+
+<!-- Portfolio -->
+<?php if (!empty($portfolioSites)): ?>
+<section class="section" id="portfolio" style="background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 100%);">
+  <div class="container">
+    <div class="section-header">
+      <h2>Voorbeelden van ons werk</h2>
+      <p>Een greep uit de websites die we voor onze klanten hebben gebouwd.</p>
+    </div>
+    <div class="grid-3" style="gap:32px;">
+      <?php foreach ($portfolioSites as $siteUrl):
+        $host = parse_url($siteUrl, PHP_URL_HOST) ?: $siteUrl;
+        $label = preg_replace('/\.websitevoorjou\.nl$/', '', $host);
+        $label = ucfirst($label);
+        $thumbUrl = 'https://image.thum.io/get/width/800/crop/500/noanimate/' . $siteUrl;
+      ?>
+      <div class="portfolio-card">
+        <a href="<?= htmlspecialchars($siteUrl) ?>" target="_blank" rel="noopener" class="portfolio-thumb-link">
+          <div class="portfolio-thumb">
+            <img src="<?= htmlspecialchars($thumbUrl) ?>" alt="<?= htmlspecialchars($label) ?>" loading="lazy">
+            <div class="portfolio-overlay">
+              <span>&#128065; Bekijk website</span>
+            </div>
+          </div>
+        </a>
+        <div class="portfolio-info">
+          <div class="portfolio-name"><?= htmlspecialchars($label) ?></div>
+          <a href="<?= htmlspecialchars($siteUrl) ?>" target="_blank" rel="noopener" class="portfolio-url"><?= htmlspecialchars($host) ?> &#8599;</a>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</section>
+<?php endif; ?>
 
 <!-- Pakketten -->
 <section class="section" id="pakketten">

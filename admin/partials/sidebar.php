@@ -42,6 +42,7 @@ $isAdmin = $user['role'] === 'admin';
   <div class="sidebar-section">Beheer</div>
   <ul class="sidebar-nav">
     <li><a href="/admin/employees.php" <?= $current === 'employees.php' ? 'class="active"' : '' ?>><span class="nav-icon">&#128119;</span> Medewerkers</a></li>
+    <li><a href="/admin/settings.php" <?= $current === 'settings.php' ? 'class="active"' : '' ?>><span class="nav-icon">&#9881;</span> Instellingen</a></li>
   </ul>
   <?php endif; ?>
 
