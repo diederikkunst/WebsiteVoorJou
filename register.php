@@ -77,14 +77,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             sendVerificationEmail($email, $name, $token);
 
             // Notificatie naar admin
-            $adminHtml = '<p>Nieuwe aanmelding op WebsiteVoorJou:</p>'
-                . '<ul><li><strong>Naam:</strong> ' . htmlspecialchars($name) . '</li>'
-                . '<li><strong>E-mail:</strong> ' . htmlspecialchars($email) . '</li>'
-                . ($phone ? '<li><strong>Telefoon:</strong> ' . htmlspecialchars($phone) . '</li>' : '')
-                . ($company ? '<li><strong>Bedrijf:</strong> ' . htmlspecialchars($company) . '</li>' : '')
-                . ($existingLead ? '<li><strong>Gekoppeld aan bestaande lead</strong></li>' : '')
-                . '</ul>';
-            sendMail(MAIL_FROM, 'Nieuwe aanmelding: ' . $name, $adminHtml, 'WebsiteVoorJou', 'admin_notificatie');
+            $adminHtml = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;background:#f9f9f9;padding:20px;">
+<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+  <div style="background:linear-gradient(135deg,#6C63FF,#00D4FF);padding:24px 32px;">
+    <h2 style="color:#fff;margin:0;font-size:1.2rem;">&#128226; Nieuwe aanmelding via website</h2>
+  </div>
+  <div style="padding:24px 32px;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.95rem;">
+      <tr><td style="padding:8px 0;color:#666;width:120px;">Naam</td><td style="font-weight:600;">' . htmlspecialchars($name) . '</td></tr>
+      <tr><td style="padding:8px 0;color:#666;">E-mail</td><td><a href="mailto:' . htmlspecialchars($email) . '" style="color:#6C63FF;">' . htmlspecialchars($email) . '</a></td></tr>'
+      . ($phone ? '<tr><td style="padding:8px 0;color:#666;">Telefoon</td><td>' . htmlspecialchars($phone) . '</td></tr>' : '')
+      . ($company ? '<tr><td style="padding:8px 0;color:#666;">Bedrijf</td><td>' . htmlspecialchars($company) . '</td></tr>' : '')
+      . ($existingLead ? '<tr><td style="padding:8px 0;color:#666;">Lead</td><td>&#10003; Gekoppeld aan bestaande lead</td></tr>' : '') . '
+    </table>
+    <div style="margin-top:20px;text-align:center;">
+      <a href="' . APP_URL . '/admin/clients.php" style="display:inline-block;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#fff;text-decoration:none;padding:10px 28px;border-radius:8px;font-weight:700;font-size:0.9rem;">Bekijk in admin &rarr;</a>
+    </div>
+  </div>
+</div>
+</body></html>';
+            sendMail(MAIL_FROM, '&#128226; Nieuwe aanmelding: ' . $name, $adminHtml, 'WebsiteVoorJou Admin', 'admin_notificatie', $name . ' <' . $email . '>');
 
             $success = $existingLead ? 'sent_lead' : 'sent';
         }

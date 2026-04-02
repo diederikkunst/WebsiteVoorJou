@@ -24,6 +24,13 @@ if (isset($_GET['mark_all_read'])) {
     exit;
 }
 
+if (isset($_GET['delete'])) {
+    $id = (int)$_GET['delete'];
+    $db->prepare('DELETE FROM contact_requests WHERE id = ?')->execute([$id]);
+    header('Location: /admin/contacts.php');
+    exit;
+}
+
 // Stuur reactie
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_reply'])) {
     $id      = (int)$_POST['contact_id'];
@@ -180,6 +187,7 @@ if ($contacts) {
                     <a href="/admin/new-client.php?from_contact=<?= $c['id'] ?>" class="btn btn-sm btn-primary">Lead aanmaken</a>
                   <?php endif; ?>
                   <button type="button" class="btn btn-sm btn-outline" onclick="toggleReply(<?= $c['id'] ?>)">&#128231; Reageren</button>
+                  <a href="?delete=<?= $c['id'] ?>" class="btn btn-sm btn-danger" onclick="return confirm('Aanvraag van <?= htmlspecialchars(addslashes($c['name'])) ?> verwijderen?')">&#10005; Verwijderen</a>
                 </div>
               </div>
 

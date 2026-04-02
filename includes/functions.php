@@ -102,7 +102,7 @@ function saveUpload(array $file, string $subdir): ?string {
     return null;
 }
 
-function sendMail(string $to, string $subject, string $htmlBody, string $toName = '', string $type = 'overig'): bool {
+function sendMail(string $to, string $subject, string $htmlBody, string $toName = '', string $type = 'overig', string $replyTo = ''): bool {
     $host = MAIL_SMTP_HOST;
     $port = MAIL_SMTP_PORT;
     $user = MAIL_SMTP_USER;
@@ -110,12 +110,12 @@ function sendMail(string $to, string $subject, string $htmlBody, string $toName 
     $from = MAIL_FROM;
     $fromName = MAIL_FROM_NAME;
 
-    $boundary = md5(uniqid());
     $toHeader = $toName ? '"' . $toName . '" <' . $to . '>' : $to;
 
     $message  = "Date: " . date('r') . "\r\n";
     $message .= "From: =?UTF-8?B?" . base64_encode($fromName) . "?= <{$from}>\r\n";
     $message .= "To: {$toHeader}\r\n";
+    if ($replyTo) $message .= "Reply-To: {$replyTo}\r\n";
     $message .= "Subject: =?UTF-8?B?" . base64_encode($subject) . "?=\r\n";
     $message .= "MIME-Version: 1.0\r\n";
     $message .= "Content-Type: text/html; charset=UTF-8\r\n";
