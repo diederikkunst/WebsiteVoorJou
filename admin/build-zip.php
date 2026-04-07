@@ -70,8 +70,8 @@ function buildZipFromUrl(string $baseUrl): ?string
             CURLOPT_TIMEOUT        => 15,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS      => 5,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; WebsiteVoorJou-Zipper/1.0)',
             CURLOPT_ENCODING       => '',
         ]);

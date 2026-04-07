@@ -18,6 +18,20 @@ if (!$client) { header('Location: /admin/clients.php'); exit; }
 $success = $error = '';
 $isNew   = isset($_GET['new']);
 
+// Verwijder lead/klant (alleen als er geen projecten zijn)
+if (isset($_GET['delete']) && $_GET['delete'] === 'confirm') {
+    $cntStmt = $db->prepare('SELECT COUNT(*) FROM projects WHERE client_id = ?');
+    $cntStmt->execute([$clientId]);
+    $count = (int)$cntStmt->fetchColumn();
+    if ($count === 0) {
+        $db->prepare('DELETE FROM clients WHERE id = ?')->execute([$clientId]);
+        header('Location: /admin/clients.php?deleted=1');
+        exit;
+    } else {
+        $error = 'Deze lead/klant heeft nog ' . $count . ' project(en). Verwijder eerst de projecten.';
+    }
+}
+
 // Update client
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_client'])) {
     $name    = trim($_POST['name'] ?? '');
@@ -86,7 +100,10 @@ $projects = $projects->fetchAll();
             <div style="width:60px;height:60px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:800;"><?= strtoupper(substr($client['name'],0,1)) ?></div>
           <?php endif; ?>
           <div>
-            <a href="/admin/clients.php" style="font-size:0.85rem;color:var(--text-muted);">&#8592; Klanten</a>
+            <div style="display:flex;align-items:center;gap:12px;">
+          <a href="/admin/clients.php" style="font-size:0.85rem;color:var(--text-muted);">&#8592; Klanten</a>
+          <a href="?id=<?= $clientId ?>&delete=confirm" class="btn btn-sm btn-danger" onclick="return confirm('<?= htmlspecialchars(addslashes($client['name'])) ?> verwijderen? Dit kan niet ongedaan worden gemaakt.')">&#10005; Verwijderen</a>
+        </div>
             <h1 style="margin-top:2px;"><?= htmlspecialchars($client['name']) ?></h1>
             <span class="badge badge-<?= $client['type'] ?>"><?= $client['type'] === 'lead' ? 'Lead' : 'Klant' ?></span>
           </div>
