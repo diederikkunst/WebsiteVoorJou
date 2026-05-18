@@ -6,12 +6,12 @@ require_once __DIR__ . '/../includes/functions.php';
 
 // Valideer state (CSRF bescherming)
 if (empty($_GET['state']) || $_GET['state'] !== ($_SESSION['oauth_state'] ?? '')) {
-    header('Location: /login.php?error=invalid_state'); exit;
+    header('Location: ' . BASE_PATH . '/login.php?error=invalid_state'); exit;
 }
 unset($_SESSION['oauth_state']);
 
 if (empty($_GET['code'])) {
-    header('Location: /login.php?error=no_code'); exit;
+    header('Location: ' . BASE_PATH . '/login.php?error=no_code'); exit;
 }
 
 // Wissel code in voor access token
@@ -31,7 +31,7 @@ $tokenData = json_decode(curl_exec($ch), true);
 curl_close($ch);
 
 if (empty($tokenData['access_token'])) {
-    header('Location: /login.php?error=token_failed'); exit;
+    header('Location: ' . BASE_PATH . '/login.php?error=token_failed'); exit;
 }
 
 // Haal gebruikersinfo op
@@ -44,7 +44,7 @@ $googleUser = json_decode(curl_exec($ch), true);
 curl_close($ch);
 
 if (empty($googleUser['email'])) {
-    header('Location: /login.php?error=no_email'); exit;
+    header('Location: ' . BASE_PATH . '/login.php?error=no_email'); exit;
 }
 
 $db    = getDB();
@@ -87,5 +87,5 @@ $_SESSION['user_name'] = $user['name'];
 $_SESSION['user_role'] = $user['role'];
 session_regenerate_id(true);
 
-header('Location: /portal/dashboard.php');
+header('Location: ' . BASE_PATH . '/portal/dashboard.php');
 exit;

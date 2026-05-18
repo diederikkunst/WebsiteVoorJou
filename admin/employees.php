@@ -41,7 +41,7 @@ if (isset($_GET['toggle'])) {
         $curActive = (int)$cur->fetchColumn();
         $db->prepare('UPDATE users SET is_active = ? WHERE id = ?')->execute([$curActive ? 0 : 1, $empId]);
     }
-    header('Location: /admin/employees.php');
+    header('Location: ' . BASE_PATH . '/admin/employees.php');
     exit;
 }
 
@@ -54,8 +54,8 @@ $employees = $db->query("SELECT u.*, (SELECT COUNT(DISTINCT pe.project_id) FROM 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Medewerkers — WebsiteVoorJou Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -142,6 +142,6 @@ $employees = $db->query("SELECT u.*, (SELECT COUNT(DISTINCT pe.project_id) FROM 
     </div>
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

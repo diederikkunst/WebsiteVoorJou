@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
                     $check = $db->prepare('SELECT id FROM users WHERE email = ?');
                     $check->execute([$email]);
                     if ($check->fetch()) {
-                        $error = 'Er bestaat al een account met dit e-mailadres. <a href="/login.php">Inloggen?</a>';
+                        $error = 'Er bestaat al een account met dit e-mailadres. <a href="' . BASE_PATH . '/login.php">Inloggen?</a>';
                     }
                 }
             }
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
                     $_SESSION['user_role'] = 'client';
                     session_regenerate_id(true);
 
-                    header('Location: /portal/dashboard.php');
+                    header('Location: ' . BASE_PATH . '/portal/dashboard.php');
                     exit;
                 }
 
@@ -107,18 +107,119 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebsiteVoorJou — Jouw website, snel gebouwd met AI</title>
-  <meta name="description" content="Van concept naar online in no time. Stuur ons je bedrijfsbeschrijving en ontvang een gepersonaliseerde website preview. Professioneel, snel en betaalbaar.">
+
+  <title>WebsiteVoorJou — Professionele website laten maken met AI | Vanaf €999</title>
+  <meta name="description" content="Ontvang binnen enkele dagen een gratis website preview op maat. WebsiteVoorJou bouwt professionele websites met AI — snel, betaalbaar en zonder gedoe. Pakketten vanaf €999.">
+  <meta name="keywords" content="website laten maken, website bouwen, AI website, professionele website, website Nederland, goedkope website, website preview gratis">
+  <meta name="robots" content="index, follow">
+  <meta name="author" content="WebsiteVoorJou — KunstIT">
+  <link rel="canonical" href="https://websitevoorjou.nl/">
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website">
+  <meta property="og:locale"      content="nl_NL">
+  <meta property="og:url"         content="https://websitevoorjou.nl/">
+  <meta property="og:site_name"   content="WebsiteVoorJou">
+  <meta property="og:title"       content="WebsiteVoorJou — Professionele website laten maken met AI">
+  <meta property="og:description" content="Gratis website preview binnen enkele dagen. Professioneel, snel en betaalbaar — pakketten vanaf €999.">
+  <meta property="og:image"       content="https://websitevoorjou.nl/logo.png">
+  <meta property="og:image:width"  content="800">
+  <meta property="og:image:height" content="800">
+  <meta property="og:image:alt"   content="WebsiteVoorJou logo">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary">
+  <meta name="twitter:title"       content="WebsiteVoorJou — Professionele website laten maken met AI">
+  <meta name="twitter:description" content="Gratis website preview binnen enkele dagen. Pakketten vanaf €999.">
+  <meta name="twitter:image"       content="https://websitevoorjou.nl/logo.png">
+
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://websitevoorjou.nl/#website",
+        "url": "https://websitevoorjou.nl/",
+        "name": "WebsiteVoorJou",
+        "description": "Professionele websites laten maken met AI — snel, betaalbaar en op maat.",
+        "inLanguage": "nl-NL",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "https://websitevoorjou.nl/#contact",
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "LocalBusiness",
+        "@id": "https://websitevoorjou.nl/#business",
+        "name": "WebsiteVoorJou",
+        "alternateName": "KunstIT",
+        "url": "https://websitevoorjou.nl/",
+        "logo": "https://websitevoorjou.nl/logo.png",
+        "image": "https://websitevoorjou.nl/logo.png",
+        "email": "info@websitevoorjou.nl",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Goudkruid 78",
+          "postalCode": "3068SZ",
+          "addressLocality": "Rotterdam",
+          "addressCountry": "NL"
+        },
+        "vatID": "NL001570862B65",
+        "description": "WebsiteVoorJou bouwt professionele websites met behulp van AI — snel, betaalbaar en volledig op maat voor ondernemers in Nederland.",
+        "priceRange": "€€",
+        "areaServed": "NL",
+        "serviceType": "Webdesign en webontwikkeling",
+        "sameAs": []
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://websitevoorjou.nl/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Hoe lang duurt het voordat ik mijn preview zie?",
+            "acceptedAnswer": { "@type": "Answer", "text": "In de meeste gevallen heb je binnen 2 tot 5 werkdagen een gepersonaliseerde preview in je inbox. Bij complexere concepten kan dit iets langer duren, maar we houden je altijd op de hoogte." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is de preview echt gratis, zonder verplichtingen?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Ja, 100% vrijblijvend. Je ontvangt een gratis website-concept op maat. Pas als je er tevreden mee bent en wil dat we het live zetten, betaal je voor een pakket. Geen credit card nodig bij de aanvraag." }
+          },
+          {
+            "@type": "Question",
+            "name": "Kan ik de website later nog aanpassen?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Absoluut. Met pakket Zilver en hoger kun je altijd aanpassingen aanvragen. Met pakket Goud beheer je zelf de inhoud via een CMS. Je kunt op elk moment upgraden." }
+          },
+          {
+            "@type": "Question",
+            "name": "Wat heb ik nodig om te beginnen?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Eigenlijk niets meer dan een paar zinnen over je bedrijf. Wat doe je, voor wie, en wat wil je bereiken? Wij nemen het van daar over. Heb je al een logo of huisstijl? Stuur het mee, maar het is geen vereiste." }
+          },
+          {
+            "@type": "Question",
+            "name": "Hoe zit het met hosting en onderhoud?",
+            "acceptedAnswer": { "@type": "Answer", "text": "We regelen alles van hosting tot updates. Je hoeft je nergens druk om te maken. De precieze details bespreken we per pakket, maar veiligheid, uptime en updates zijn altijd inbegrepen." }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 
 <!-- Navbar -->
 <nav class="navbar">
   <div class="container">
-    <a href="/" class="navbar-brand">WebsiteVoorJou</a>
+    <a href="/" class="navbar-brand">Website<span>VoorJou</span></a>
     <ul class="navbar-nav">
       <li><a href="#over-ons">Over ons</a></li>
       <li><a href="#portfolio">Portfolio</a></li>
@@ -126,8 +227,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
       <li><a href="#hoe-het-werkt">Hoe het werkt</a></li>
       <li><a href="#faq">FAQ</a></li>
       <li><a href="#contact">Contact</a></li>
-      <li><a href="/login.php" class="btn btn-outline btn-sm">Inloggen</a></li>
-      <li><a href="/register.php" class="btn btn-primary btn-sm" style="color:#fff;">Account aanmaken</a></li>
+      <li><a href="<?= BASE_PATH ?>/login.php" class="btn btn-outline btn-sm">Inloggen</a></li>
+      <li><a href="<?= BASE_PATH ?>/register.php" class="btn btn-primary btn-sm" style="color:#fff;">Account aanmaken</a></li>
     </ul>
     <button class="navbar-toggle" aria-label="Menu">
       <span></span><span></span><span></span>
@@ -140,38 +241,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
   <div class="container" style="display:flex;gap:64px;align-items:center;flex-wrap:wrap;">
     <div class="hero-content">
       <div class="hero-tag">
-        <span>&#9889;</span> Powered by AI &amp; vakmanschap
+        <span>&#9989;</span> Gratis preview — geen creditcard nodig
       </div>
-      <h1>Jouw website,<br><span class="gradient-text">razendsnel live</span></h1>
-      <p>Stuur ons je bedrijfsbeschrijving en ontvang binnen enkele dagen een professionele website preview. Geen gedoe, geen wachttijden — gewoon resultaat.</p>
+      <h1>Professionele website.<br><span class="gradient-text">Wij regelen alles.</span></h1>
+      <p>Geen technische kennis nodig. Geen tijdverspilling. Stuur ons een beschrijving van je bedrijf en ontvang binnen enkele werkdagen een werkende website preview — volledig op maat.</p>
+      <p class="hero-sub">Pakketten vanaf <strong style="color:var(--text);">€499</strong> eenmalig. Geen verborgen kosten.</p>
       <div class="hero-actions">
-        <a href="#contact" class="btn btn-primary btn-lg">Vraag jouw gratis preview aan</a>
+        <a href="#contact" class="btn btn-primary btn-lg">Ontvang je gratis preview</a>
         <a href="#pakketten" class="btn btn-outline btn-lg">Bekijk pakketten</a>
       </div>
-    </div>
-    <div class="hero-visual" style="flex:1;min-width:280px;">
-      <div class="hero-grid">
-        <div class="hero-card">
-          <div class="hero-card-icon">&#127881;</div>
-          <h4>Gratis preview</h4>
-          <p class="text-muted">Binnen enkele dagen online</p>
-        </div>
-        <div class="hero-card">
-          <div class="hero-card-icon">&#129302;</div>
-          <h4>AI-gedreven</h4>
-          <p class="text-muted">Sneller dan ooit</p>
-        </div>
-        <div class="hero-card">
-          <div class="hero-card-icon">&#128640;</div>
-          <h4>Direct live</h4>
-          <p class="text-muted">Op jouw eigen domein</p>
-        </div>
-        <div class="hero-card">
-          <div class="hero-card-icon">&#128736;</div>
-          <h4>Volledig maatwerk</h4>
-          <p class="text-muted">Precies zoals jij wil</p>
-        </div>
+      <div class="hero-trust">
+        <div class="hero-trust-item"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Binnen enkele werkdagen</div>
+        <div class="hero-trust-item"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Vaste prijs, geen verrassingen</div>
+        <div class="hero-trust-item"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> KvK 24444475</div>
       </div>
+    </div>
+    <div class="hero-visual">
+      <img src="<?= BASE_PATH ?>/blijeondernemers.png" alt="Blije ondernemers met hun nieuwe website" class="hero-photo">
     </div>
   </div>
 </section>
@@ -180,54 +266,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
 <section class="section" id="over-ons" style="background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);">
   <div class="container">
     <div class="about-grid">
+      <div class="about-image">
+        <div class="about-photo-wrap">
+          <img src="<?= BASE_PATH ?>/nieuwewebsite.png" alt="Voorbeeld van een nieuwe website" class="about-photo">
+        </div>
+      </div>
       <div>
         <div class="hero-tag" style="margin-bottom:20px;">
           <span>&#128161;</span> Onze missie
         </div>
-        <h2>Jarenlange passie, <span class="gradient-text">versterkt door AI</span></h2>
+        <h2>Voor ondernemers die <span class="gradient-text">gewoon een goede website</span> willen</h2>
         <p style="font-size:1.05rem;margin-top:16px;margin-bottom:8px;">
-          We bouwen al jaren software met één doel: zo efficiënt mogelijk, zonder in te leveren op kwaliteit. Elke regel code telt. Elke minuut telt.
+          Als ondernemer heb je geen tijd om maanden te wachten op een dure webbureau, of je te verdiepen in techniek. Je wil gewoon een professionele website die klanten aantrekt — en snel.
         </p>
         <p>
-          Met de komst van AI is dat nog verder gegaan. We kunnen nu sneller dan ooit professionele websites bouwen die er geweldig uitzien en perfect werken. En dat willen we met iedereen delen.
+          Dat is precies wat wij doen. Stuur ons je beschrijving, en wij bouwen het. Geen verrassingen in de prijs, geen eindeloze vergaderingen. Gewoon resultaat.
         </p>
         <div class="about-features">
           <div class="about-feature">
-            <div class="about-feature-icon">&#128200;</div>
+            <div class="about-feature-icon">&#128273;</div>
             <div>
-              <h4>Razendsnel van idee naar resultaat</h4>
-              <p>Stuur je beschrijving op en ontvang binnen enkele dagen al een werkende preview.</p>
+              <h4>Geen technische kennis nodig</h4>
+              <p>Wij vertalen jouw wensen naar een professionele website. Jij hoeft niets te weten van code of design.</p>
             </div>
           </div>
           <div class="about-feature">
-            <div class="about-feature-icon">&#127775;</div>
+            <div class="about-feature-icon">&#128176;</div>
             <div>
-              <h4>Topkwaliteit, geen concessies</h4>
-              <p>AI versnelt ons werk, maar ons vakmanschap en oog voor detail blijven het fundament.</p>
+              <h4>Transparante vaste prijs</h4>
+              <p>Je weet vooraf wat het kost. Geen urenadministratie, geen meerwerk-facturen achteraf.</p>
             </div>
           </div>
           <div class="about-feature">
             <div class="about-feature-icon">&#129309;</div>
             <div>
-              <h4>Een echte partner</h4>
-              <p>We stoppen niet bij een website. We groeien mee als digitale partner voor jouw bedrijf.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="about-image">
-        <div class="ai-visual">
-          <span class="big-icon">&#129302;</span>
-          <h3 style="margin-bottom:8px;">Slimmer bouwen</h3>
-          <p>AI als co-piloot, wij aan het stuur</p>
-          <div class="ai-stat">
-            <div class="ai-stat-item">
-              <h3>5x</h3>
-              <p>Sneller dan traditioneel</p>
-            </div>
-            <div class="ai-stat-item">
-              <h3>100%</h3>
-              <p>Maatwerk resultaat</p>
+              <h4>Wij blijven beschikbaar</h4>
+              <p>Na oplevering kun je altijd bij ons terecht voor aanpassingen en vragen. Geen anoniem ticketsysteem.</p>
             </div>
           </div>
         </div>
@@ -275,8 +349,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
 <section class="section" id="pakketten">
   <div class="container">
     <div class="section-header">
-      <h2>Kies jouw pakket</h2>
-      <p>Van een gratis preview tot volledige bedrijfssoftware — er is een passende oplossing voor elke fase van je bedrijf.</p>
+      <h2>Eerlijke prijzen, geen verrassingen</h2>
+      <p>Eenmalige vaste prijs, volledig op maat gemaakt voor jouw bedrijf. Je betaalt alleen als je tevreden bent met de preview.</p>
     </div>
     <div class="packages-grid">
 
@@ -302,12 +376,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
       <div class="package-card">
         <div class="package-icon">&#127748;</div>
         <div class="package-tier tier-zilver">Zilver</div>
-        <div class="package-price">&euro;999<span> eenmalig</span></div>
-        <p class="package-desc">Jouw goedgekeurde concept live zetten op jouw eigen domein.</p>
+        <div class="package-price">&euro;499<span> eenmalig</span></div>
+        <p class="package-desc">Jouw website live op jouw eigen domein — wij regelen hosting en oplevering.</p>
         <ul class="package-features">
           <li>Alles uit Brons</li>
           <li>Live op jouw eigen domein</li>
-          <li>Professionele hosting-setup</li>
+          <li>Professionele hosting inbegrepen</li>
+          <li>SSL-certificaat</li>
         </ul>
         <div class="package-cta">
           <a href="#contact" class="btn btn-outline w-full">Kies Zilver</a>
@@ -316,16 +391,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
 
       <!-- Goud -->
       <div class="package-card featured">
-        <div class="package-badge">Meest populair</div>
+        <div class="package-badge">Meest gekozen</div>
         <div class="package-icon">&#11088;</div>
         <div class="package-tier tier-goud">Goud</div>
-        <div class="package-price">&euro;2.999<span> eenmalig</span></div>
-        <p class="package-desc">Jouw website met een krachtig CMS zodat je zelf de content beheert.</p>
+        <div class="package-price">&euro;999<span> eenmalig</span></div>
+        <p class="package-desc">Zelf je teksten en afbeeldingen beheren, zonder technische kennis.</p>
         <ul class="package-features">
           <li>Alles uit Zilver</li>
-          <li>Volledig CMS — zelf alles aanpassen</li>
-          <li>Blog / nieuws module</li>
-          <li>Contactformulieren</li>
+          <li>Eenvoudig CMS — zelf aanpassen</li>
+          <li>Blog of nieuwspagina</li>
+          <li>Contactformulier met e-mail</li>
+          <li>Google Analytics koppeling</li>
         </ul>
         <div class="package-cta">
           <a href="#contact" class="btn btn-primary w-full">Kies Goud</a>
@@ -481,7 +557,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
         <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:20px;">Maak gelijk een account aan om je preview te volgen in het portaal.</p>
 
         <?php if (GOOGLE_CLIENT_ID): ?>
-        <a href="/auth/google.php" class="btn btn-outline w-full" style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;">
+        <a href="<?= BASE_PATH ?>/auth/google.php" class="btn btn-outline w-full" style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:16px;">
           <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           Doorgaan met Google
         </a>
@@ -591,8 +667,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
         <h4 class="footer-heading">Pakketten</h4>
         <ul class="footer-links">
           <li><a href="#pakketten">Brons — Gratis preview</a></li>
-          <li><a href="#pakketten">Zilver — &euro;999</a></li>
-          <li><a href="#pakketten">Goud — &euro;2.999</a></li>
+          <li><a href="#pakketten">Zilver — &euro;499</a></li>
+          <li><a href="#pakketten">Goud — &euro;999</a></li>
           <li><a href="#pakketten">Platinum — Op maat</a></li>
         </ul>
       </div>
@@ -603,14 +679,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
           <li><a href="#hoe-het-werkt">Hoe het werkt</a></li>
           <li><a href="#faq">FAQ</a></li>
           <li><a href="#contact">Contact</a></li>
-          <li><a href="/algemene-voorwaarden.php">Algemene voorwaarden</a></li>
+          <li><a href="<?= BASE_PATH ?>/algemene-voorwaarden.php">Algemene voorwaarden</a></li>
         </ul>
       </div>
       <div>
         <h4 class="footer-heading">Account</h4>
         <ul class="footer-links">
-          <li><a href="/login.php">Inloggen</a></li>
-          <li><a href="/portal/dashboard.php">Mijn projecten</a></li>
+          <li><a href="<?= BASE_PATH ?>/login.php">Inloggen</a></li>
+          <li><a href="<?= BASE_PATH ?>/portal/dashboard.php">Mijn projecten</a></li>
           <li><a href="mailto:info@websitevoorjou.nl">Support</a></li>
         </ul>
       </div>
@@ -622,6 +698,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
   </div>
 </footer>
 
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

@@ -14,8 +14,8 @@ if (!$project || empty($project['preview_url'])) {
     http_response_code(404);
     ?>
     <!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Preview niet gevonden</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/css/style.css"></head>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css"></head>
     <body style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;">
     <div><h1 style="font-size:4rem;">404</h1><h2>Preview niet gevonden</h2>
     <p>Deze preview link is verlopen of ongeldig.</p>
@@ -35,8 +35,8 @@ $previewUrl = htmlspecialchars($project['preview_url']);
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview — <?= htmlspecialchars($project['name']) ?> — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--bg); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }

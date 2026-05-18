@@ -8,12 +8,12 @@ $user = currentUser();
 $db   = getDB();
 
 $projectId = (int)($_GET['id'] ?? 0);
-if (!$projectId) { header('Location: /admin/projects.php'); exit; }
+if (!$projectId) { header('Location: ' . BASE_PATH . '/admin/projects.php'); exit; }
 
 $stmt = $db->prepare('SELECT p.*, c.name AS client_name, c.email AS client_email, c.id AS client_id FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ?');
 $stmt->execute([$projectId]);
 $project = $stmt->fetch();
-if (!$project) { header('Location: /admin/projects.php'); exit; }
+if (!$project) { header('Location: ' . BASE_PATH . '/admin/projects.php'); exit; }
 
 $success = $error = '';
 
@@ -167,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_download_zip']
 if (isset($_GET['remove_employee'])) {
     $empId = (int)$_GET['remove_employee'];
     $db->prepare('DELETE FROM project_employees WHERE project_id = ? AND user_id = ?')->execute([$projectId, $empId]);
-    header('Location: /admin/project-detail.php?id=' . $projectId);
+    header('Location: ' . BASE_PATH . '/admin/project-detail.php?id=' . $projectId);
     exit;
 }
 
@@ -204,8 +204,8 @@ $currentIdx = array_search($project['status'], $statusList);
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= htmlspecialchars($project['name']) ?> — Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -521,6 +521,6 @@ $currentIdx = array_search($project['status'], $statusList);
 
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

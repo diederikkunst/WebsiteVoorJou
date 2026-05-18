@@ -8,12 +8,12 @@ $user = currentUser();
 $db   = getDB();
 
 $projectId = (int)($_GET['project_id'] ?? 0);
-if (!$projectId) { header('Location: /admin/projects.php'); exit; }
+if (!$projectId) { header('Location: ' . BASE_PATH . '/admin/projects.php'); exit; }
 
 $stmt = $db->prepare('SELECT p.*, c.name AS client_name, c.email AS client_email, c.id AS client_id FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ?');
 $stmt->execute([$projectId]);
 $project = $stmt->fetch();
-if (!$project) { header('Location: /admin/projects.php'); exit; }
+if (!$project) { header('Location: ' . BASE_PATH . '/admin/projects.php'); exit; }
 
 $success = $error = '';
 $token = null;
@@ -106,8 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview mailen — <?= htmlspecialchars($project['name']) ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -198,6 +198,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_email'])) {
     </div>
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

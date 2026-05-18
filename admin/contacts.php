@@ -14,20 +14,20 @@ $error   = '';
 if (isset($_GET['mark_read'])) {
     $id = (int)$_GET['mark_read'];
     $db->prepare('UPDATE contact_requests SET is_read = 1 WHERE id = ?')->execute([$id]);
-    header('Location: /admin/contacts.php');
+    header('Location: ' . BASE_PATH . '/admin/contacts.php');
     exit;
 }
 
 if (isset($_GET['mark_all_read'])) {
     $db->query('UPDATE contact_requests SET is_read = 1');
-    header('Location: /admin/contacts.php');
+    header('Location: ' . BASE_PATH . '/admin/contacts.php');
     exit;
 }
 
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     $db->prepare('DELETE FROM contact_requests WHERE id = ?')->execute([$id]);
-    header('Location: /admin/contacts.php');
+    header('Location: ' . BASE_PATH . '/admin/contacts.php');
     exit;
 }
 
@@ -94,8 +94,8 @@ if ($contacts) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aanvragen — WebsiteVoorJou Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -223,7 +223,7 @@ Het WebsiteVoorJou team</textarea>
     </div>
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 <script>
 function toggleReply(id) {
   var el = document.getElementById('reply-' + id);

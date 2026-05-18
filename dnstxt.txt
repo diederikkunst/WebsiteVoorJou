@@ -1,0 +1,37 @@
+
+Begonnen met de uitgifte van een wildcard SSL/TLS-certificaat van Let's Encrypt voor het domein websitevoorjou.nl.
+
+Voeg een DNS-record toe met de volgende parameters:
+Type record: TXT
+Domeinnaam: _acme-challenge.websitevoorjou.nl
+Record: rx6ZiweGyerbUVMmiaKFbyj-36aTcS5PMOb-QE4aU5E
+
+Zorg ervoor dat, voordat u op "Doorgaan" klikt, het DNS-record is toegevoegd en van buiten kan worden omgezet.
+
+Om de bestaande certificaataanvraag te beëindigen en te verwijderen klikt u op "Annuleren".
+
+
+
+
+
+
+
+Domeinnaam: _acme-challenge.websitevoorjou.nl
+Record: _0No5xhwxH7YJcCu_JKAcu5fleVHUHzvsegfpSsD-BU
+
+Zorg ervoor dat, voordat u op "Doorgaan" klikt, het DNS-record is toegevoegd en van buiten kan worden omgezet.
+
+Om de bestaande certificaataanvraag te beëindigen en te verwijderen klikt u op "Annuleren".
+
+
+
+
+Voeg een DNS-record toe met de volgende parameters:
+Type record: TXT
+Domeinnaam: _acme-challenge.websitevoorjou.nl
+Record: _0No5xhwxH7YJcCu_JKAcu5fleVHUHzvsegfpSsD-BU
+
+
+https://generatiesoftware.websitevoorjou.nl/
+https://aflossen.websitevoorjou.nl/
+https://tamisan.websitevoorjou.nl/

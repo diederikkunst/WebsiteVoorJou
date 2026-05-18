@@ -13,7 +13,7 @@ $projectId = (int)($_GET['id'] ?? 0);
 $isNew     = isset($_GET['new']);
 
 if (!$client || !$projectId) {
-    header('Location: /portal/dashboard.php');
+    header('Location: ' . BASE_PATH . '/portal/dashboard.php');
     exit;
 }
 
@@ -22,7 +22,7 @@ $stmt->execute([$projectId, $client['id']]);
 $project = $stmt->fetch();
 
 if (!$project) {
-    header('Location: /portal/dashboard.php');
+    header('Location: ' . BASE_PATH . '/portal/dashboard.php');
     exit;
 }
 
@@ -199,8 +199,8 @@ $currentIdx = array_search($project['status'], $statusList);
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= htmlspecialchars($project['name']) ?> — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -513,6 +513,6 @@ $currentIdx = array_search($project['status'], $statusList);
 
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

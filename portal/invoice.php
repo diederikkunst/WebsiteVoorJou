@@ -12,7 +12,7 @@ $db     = getDB();
 $invoiceId = (int)($_GET['id'] ?? 0);
 
 if (!$client || !$invoiceId) {
-    header('Location: /portal/dashboard.php'); exit;
+    header('Location: ' . BASE_PATH . '/portal/dashboard.php'); exit;
 }
 
 // Haal factuur op — alleen als die bij een project van deze klant hoort
@@ -30,7 +30,7 @@ $stmt->execute([$invoiceId, $client['id']]);
 $invoice = $stmt->fetch();
 
 if (!$invoice) {
-    header('Location: /portal/dashboard.php'); exit;
+    header('Location: ' . BASE_PATH . '/portal/dashboard.php'); exit;
 }
 ?>
 <!DOCTYPE html>
@@ -40,8 +40,8 @@ if (!$invoice) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factuur <?= htmlspecialchars($invoice['invoice_number']) ?> — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -168,6 +168,6 @@ if (!$invoice) {
   .invoice-preview { box-shadow: none; }
 }
 </style>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

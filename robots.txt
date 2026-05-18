@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /portal/
+Disallow: /auth/
+Disallow: /uploads/
+Disallow: /includes/
+Disallow: /preview-proxy.php
+
+Sitemap: https://websitevoorjou.nl/sitemap.xml

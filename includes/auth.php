@@ -5,25 +5,28 @@ function isLoggedIn(): bool {
     return isset($_SESSION['user_id']);
 }
 
-function requireLogin(string $redirect = '/login.php'): void {
+function requireLogin(string $redirect = ''): void {
     if (!isLoggedIn()) {
-        header('Location: ' . $redirect);
+        $base = defined('BASE_PATH') ? BASE_PATH : '';
+        header('Location: ' . ($redirect ?: $base . '/login.php'));
         exit;
     }
 }
 
 function requireAdmin(): void {
-    requireLogin('/login.php');
+    requireLogin();
+    $base = defined('BASE_PATH') ? BASE_PATH : '';
     if ($_SESSION['user_role'] !== 'admin') {
-        header('Location: /portal/dashboard.php');
+        header('Location: ' . $base . '/portal/dashboard.php');
         exit;
     }
 }
 
 function requireAdminOrEmployee(): void {
-    requireLogin('/login.php');
+    requireLogin();
+    $base = defined('BASE_PATH') ? BASE_PATH : '';
     if (!in_array($_SESSION['user_role'], ['admin', 'employee'])) {
-        header('Location: /portal/dashboard.php');
+        header('Location: ' . $base . '/portal/dashboard.php');
         exit;
     }
 }

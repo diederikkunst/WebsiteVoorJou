@@ -11,19 +11,19 @@ requireAdminOrEmployee();
 $db = getDB();
 
 $projectId = (int)($_POST['project_id'] ?? 0);
-if (!$projectId) { header('Location: /admin/projects.php'); exit; }
+if (!$projectId) { header('Location: ' . BASE_PATH . '/admin/projects.php'); exit; }
 
 $stmt = $db->prepare('SELECT * FROM projects WHERE id = ?');
 $stmt->execute([$projectId]);
 $project = $stmt->fetch();
 
 if (!$project || empty($project['preview_url'])) {
-    header('Location: /admin/project-detail.php?id=' . $projectId . '&zip_error=geen_url');
+    header('Location: ' . BASE_PATH . '/admin/project-detail.php?id=' . $projectId . '&zip_error=geen_url');
     exit;
 }
 
 if (!class_exists('ZipArchive')) {
-    header('Location: /admin/project-detail.php?id=' . $projectId . '&zip_error=geen_ziparchive');
+    header('Location: ' . BASE_PATH . '/admin/project-detail.php?id=' . $projectId . '&zip_error=geen_ziparchive');
     exit;
 }
 
@@ -38,9 +38,9 @@ if ($zipFilename) {
         if (file_exists($old)) unlink($old);
     }
     $db->prepare('UPDATE projects SET download_file = ? WHERE id = ?')->execute([$zipFilename, $projectId]);
-    header('Location: /admin/project-detail.php?id=' . $projectId . '&zip_ok=1');
+    header('Location: ' . BASE_PATH . '/admin/project-detail.php?id=' . $projectId . '&zip_ok=1');
 } else {
-    header('Location: /admin/project-detail.php?id=' . $projectId . '&zip_error=mislukt');
+    header('Location: ' . BASE_PATH . '/admin/project-detail.php?id=' . $projectId . '&zip_error=mislukt');
 }
 exit;
 

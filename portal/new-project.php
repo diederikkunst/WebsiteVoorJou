@@ -10,7 +10,7 @@ $client = getClientForUser($user['id']);
 $db     = getDB();
 
 if (!$client) {
-    header('Location: /portal/dashboard.php');
+    header('Location: ' . BASE_PATH . '/portal/dashboard.php');
     exit;
 }
 
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         sendMail(MAIL_FROM, 'Nieuw project: ' . $name . ' — ' . $client['name'], $htmlBody, 'WebsiteVoorJou Admin', 'nieuw_project');
 
-        header('Location: /portal/project.php?id=' . $projectId . '&new=1');
+        header('Location: ' . BASE_PATH . '/portal/project.php?id=' . $projectId . '&new=1');
         exit;
     } else {
         $error = 'Vul een projectnaam in.';
@@ -77,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nieuw project — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -141,6 +141,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

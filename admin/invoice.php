@@ -34,7 +34,7 @@ if ($projectId) {
     }
 }
 
-if (!$project) { header('Location: /admin/projects.php'); exit; }
+if (!$project) { header('Location: ' . BASE_PATH . '/admin/projects.php'); exit; }
 
 $success = $error = '';
 
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_invoice_email'])
             $db->prepare("UPDATE invoices SET status = 'verstuurd' WHERE id = ?")->execute([$invoice['id']]);
             $db->prepare("UPDATE projects SET status = 'factuur_gestuurd' WHERE id = ?")->execute([$projectId]);
             // Redirect terug naar project met melding
-            header('Location: /admin/project-detail.php?id=' . $projectId . '&invoice_sent=1');
+            header('Location: ' . BASE_PATH . '/admin/project-detail.php?id=' . $projectId . '&invoice_sent=1');
             exit;
         } else {
             $error = 'Versturen mislukt. Controleer de mailconfiguratie.';
@@ -168,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_invoice']) && 
            ->execute([$projectId, $number, $amount, $desc, $dueDate ?: null]);
         $invoiceId = $db->lastInsertId();
         $db->prepare("UPDATE projects SET status = 'afgerond' WHERE id = ?")->execute([$projectId]);
-        header('Location: /admin/invoice.php?id=' . $invoiceId);
+        header('Location: ' . BASE_PATH . '/admin/invoice.php?id=' . $invoiceId);
         exit;
     } else {
         $error = 'Bedrag moet groter zijn dan 0.';
@@ -185,8 +185,8 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factuur — <?= htmlspecialchars($project['name']) ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -402,6 +402,6 @@ $suggestedPrice = $packagePrices[$project['package']] ?? 0;
   .invoice-preview { box-shadow: none; }
 }
 </style>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

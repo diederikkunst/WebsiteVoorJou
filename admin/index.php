@@ -34,8 +34,8 @@ $contacts = $db->query("SELECT * FROM contact_requests WHERE is_read=0 ORDER BY 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard — WebsiteVoorJou</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -133,6 +133,6 @@ $contacts = $db->query("SELECT * FROM contact_requests WHERE is_read=0 ORDER BY 
     </div>
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

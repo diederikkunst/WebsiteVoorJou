@@ -8,12 +8,12 @@ $user = currentUser();
 $db   = getDB();
 
 $clientId = (int)($_GET['id'] ?? 0);
-if (!$clientId) { header('Location: /admin/clients.php'); exit; }
+if (!$clientId) { header('Location: ' . BASE_PATH . '/admin/clients.php'); exit; }
 
 $stmt = $db->prepare('SELECT * FROM clients WHERE id = ?');
 $stmt->execute([$clientId]);
 $client = $stmt->fetch();
-if (!$client) { header('Location: /admin/clients.php'); exit; }
+if (!$client) { header('Location: ' . BASE_PATH . '/admin/clients.php'); exit; }
 
 $success = $error = '';
 $isNew   = isset($_GET['new']);
@@ -25,7 +25,7 @@ if (isset($_GET['delete']) && $_GET['delete'] === 'confirm') {
     $count = (int)$cntStmt->fetchColumn();
     if ($count === 0) {
         $db->prepare('DELETE FROM clients WHERE id = ?')->execute([$clientId]);
-        header('Location: /admin/clients.php?deleted=1');
+        header('Location: ' . BASE_PATH . '/admin/clients.php?deleted=1');
         exit;
     } else {
         $error = 'Deze lead/klant heeft nog ' . $count . ' project(en). Verwijder eerst de projecten.';
@@ -73,8 +73,8 @@ $projects = $projects->fetchAll();
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><?= htmlspecialchars($client['name']) ?> — Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -263,6 +263,6 @@ $projects = $projects->fetchAll();
     </div>
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

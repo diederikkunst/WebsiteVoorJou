@@ -7,9 +7,12 @@ require_once __DIR__ . '/config.php';
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Algemene Voorwaarden — WebsiteVoorJou</title>
+  <meta name="description" content="De algemene voorwaarden van WebsiteVoorJou. Lees onze voorwaarden rondom dienstverlening, betaling, intellectueel eigendom en aansprakelijkheid.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://websitevoorjou.nl/algemene-voorwaarden.php">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
   <style>
     .av-wrap {
       max-width: 780px;
@@ -88,7 +91,7 @@ require_once __DIR__ . '/config.php';
         <li><a href="/#contact">Contact</a></li>
       </ul>
       <div style="display:flex;gap:8px;align-items:center;">
-        <a href="/login.php" class="btn btn-outline btn-sm">Inloggen</a>
+        <a href="<?= BASE_PATH ?>/login.php" class="btn btn-outline btn-sm">Inloggen</a>
         <a href="/#contact" class="btn btn-primary btn-sm">Aanvragen</a>
       </div>
       <button class="navbar-toggle" aria-label="Menu">&#9776;</button>
@@ -268,6 +271,6 @@ require_once __DIR__ . '/config.php';
     </div>
   </footer>
 
-  <script src="/assets/js/main.js"></script>
+  <script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

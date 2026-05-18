@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt2 = $db->prepare('INSERT INTO clients (user_id, type, name, address, email, phone, website, bank_account, logo, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $stmt2->execute([$userId, $type, $name, $address, $email, $phone, $website, $bank, $logo, $notes]);
         $clientId = $db->lastInsertId();
-        header('Location: /admin/client-detail.php?id=' . $clientId . '&new=1');
+        header('Location: ' . BASE_PATH . '/admin/client-detail.php?id=' . $clientId . '&new=1');
         exit;
     } else {
         $error = 'Naam is verplicht.';
@@ -84,8 +84,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nieuwe klant — WebsiteVoorJou Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -173,6 +173,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>

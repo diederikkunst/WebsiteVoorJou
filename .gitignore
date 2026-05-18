@@ -363,4 +363,9 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # Google Secret
+config.phpconfig.local.php
+
 config.php
+config.local.php
+database.sql
+

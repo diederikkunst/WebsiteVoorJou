@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const sharp = require\\('sharp'\\); sharp\\('logo.png'\\).metadata\\(\\).then\\(m => console.log\\(m.width, m.height, m.channels\\)\\)\")",
+      "PowerShell(python --version)",
+      "PowerShell(python -c \"from PIL import Image; print\\('PIL ok'\\)\" 2>$null)",
+      "PowerShell(Copy-Item \"c:\\\\Projects\\\\WebSiteVoorJou\\\\logo.png\" \"c:\\\\Projects\\\\WebSiteVoorJou\\\\logo-dark.png\")",
+      "Skill(redesign-existing-projects)",
+      "Skill(redesign-existing-projects:*)",
+      "Bash(php -l portal/dashboard.php)",
+      "Bash(php -l includes/auth.php)",
+      "Bash(php -l config.php)",
+      "Bash(php -r ' *)",
+      "Bash(php -i)",
+      "Bash(tail -30 \"C:/WINDOWS/Temp/php-8.3.24_errors.log\" 2>/dev/null || echo \"Log not readable\")",
+      "Read(//c/WINDOWS/Temp/**)",
+      "Bash(mysql -u root -e \"SHOW DATABASES;\")",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -e \"SHOW DATABASES;\" 2>&1)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3306 -ErrorAction SilentlyContinue)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://websitevoorjou.nl/login.php)",
+      "Bash(curl -s -X POST https://websitevoorjou.nl/login.php -d 'email=test@test.nl&password=wrongpass' -w '\\\\nHTTP_STATUS: %{http_code}' -H 'Content-Type: application/x-www-form-urlencoded')",
+      "Bash(curl -s -X POST https://websitevoorjou.nl/login.php -d 'email=test@test.nl&password=wrongpass' -H 'Content-Type: application/x-www-form-urlencoded')",
+      "Bash(higgsfield account *)",
+      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\.higgsfield\",\"$env:LOCALAPPDATA\\\\higgsfield\",\"C:\\\\higgsfield\" -ErrorAction SilentlyContinue | Select-Object FullName)",
+      "Bash(curl -fsSL https://raw.githubusercontent.com/higgsfield-ai/cli/main/install.sh)",
+      "Bash(sh)",
+      "PowerShell($releases = Invoke-WebRequest -Uri \"https://api.github.com/repos/higgsfield-ai/cli/releases/latest\" -UseBasicParsing | ConvertFrom-Json; $releases.assets | Select-Object name, browser_download_url)",
+      "PowerShell($resp = Invoke-WebRequest -Uri \"https://api.github.com/repos/higgsfield-ai/cli/releases/latest\" -UseBasicParsing; $resp.Content | ConvertFrom-Json | Select-Object -ExpandProperty assets | Select-Object name, browser_download_url)",
+      "PowerShell($resp = Invoke-WebRequest -Uri \"https://api.github.com/repos/higgsfield-ai/cli/releases\" -UseBasicParsing; \\($resp.Content | ConvertFrom-Json\\)[0].assets | Select-Object name)",
+      "PowerShell($resp = Invoke-WebRequest -Uri \"https://api.github.com/repos/higgsfield-ai/cli/releases\" -UseBasicParsing; Write-Output $resp.Content | Select-Object -First 1)",
+      "Bash(curl -s \"https://api.github.com/repos/higgsfield-ai/cli/releases/latest\")",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(a['name'], a['browser_download_url']\\) for a in data.get\\('assets',[]\\)]\")",
+      "PowerShell($resp = Invoke-WebRequest -Uri \"https://api.github.com/repos/higgsfield-ai/cli/releases/latest\" -UseBasicParsing; $json = $resp.Content | ConvertFrom-Json; $json.assets | ForEach-Object { $_.name })",
+      "PowerShell($dest = \"$env:USERPROFILE\\\\bin\"; New-Item -ItemType Directory -Force $dest | Out-Null; tar -xzf \"$env:TEMP\\\\higgsfield.tar.gz\" -C \"$env:TEMP\"; Copy-Item \"$env:TEMP\\\\hf.exe\" \"$dest\\\\higgsfield.exe\" -Force; Write-Output \"Installed to $dest\\\\higgsfield.exe\"; & \"$dest\\\\higgsfield.exe\" version)",
+      "PowerShell(& \"$env:USERPROFILE\\\\bin\\\\higgsfield.exe\" account status 2>&1)"
+    ]
+  }
+}

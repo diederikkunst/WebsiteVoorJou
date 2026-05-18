@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             createPreviewToken($projectId);
         }
 
-        header('Location: /admin/project-detail.php?id=' . $projectId . '&new=1');
+        header('Location: ' . BASE_PATH . '/admin/project-detail.php?id=' . $projectId . '&new=1');
         exit;
     }
 }
@@ -78,8 +78,8 @@ $clients = $db->query("SELECT id, name, type FROM clients ORDER BY name ASC")->f
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nieuw project — WebsiteVoorJou Admin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
 </head>
 <body>
 <div class="app-layout">
@@ -209,6 +209,6 @@ $clients = $db->query("SELECT id, name, type FROM clients ORDER BY name ASC")->f
     </div>
   </main>
 </div>
-<script src="/assets/js/main.js"></script>
+<script src="<?= BASE_PATH ?>/assets/js/main.js"></script>
 </body>
 </html>
