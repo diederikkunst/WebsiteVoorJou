@@ -137,6 +137,53 @@ CREATE TABLE email_logs (
     sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE project_seo (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL UNIQUE,
+    focus_keyword VARCHAR(255) NOT NULL DEFAULT '',
+    extra_keywords VARCHAR(500) NOT NULL DEFAULT '',
+    meta_title VARCHAR(255) NOT NULL DEFAULT '',
+    meta_description VARCHAR(500) NOT NULL DEFAULT '',
+    target_audience VARCHAR(500) NOT NULL DEFAULT '',
+    notes TEXT,
+    checklist TEXT,            -- JSON: aangevinkte checklist-items
+    scan_score INT NULL,
+    scan_results TEXT,         -- JSON: resultaat van de laatste website-scan
+    scanned_url VARCHAR(255) NOT NULL DEFAULT '',
+    scanned_at DATETIME NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE project_social (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL UNIQUE,
+    business VARCHAR(500) NOT NULL DEFAULT '',     -- wat het bedrijf doet / aanbod
+    audience VARCHAR(500) NOT NULL DEFAULT '',     -- doelgroep
+    voice TEXT,                                    -- tone of voice
+    pillars TEXT,                                  -- contentpijlers / thema's
+    example_post TEXT,                             -- voorbeeldpost (referentiestem)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE project_social_posts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT NOT NULL,
+    platform VARCHAR(30) NOT NULL,
+    content TEXT NOT NULL,
+    image_url VARCHAR(500) NOT NULL DEFAULT '',
+    status ENUM('concept','ingepland','geplaatst','mislukt') NOT NULL DEFAULT 'concept',
+    scheduled_at DATETIME NULL,
+    posted_at DATETIME NULL,
+    result_msg VARCHAR(255) NOT NULL DEFAULT '',
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_due (status, scheduled_at),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- Default admin user (password: Admin@123 - change immediately!)
 INSERT INTO users (name, email, password, role) VALUES
 ('Administrator', 'admin@websitevoorjou.nl', '$2y$12$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin');

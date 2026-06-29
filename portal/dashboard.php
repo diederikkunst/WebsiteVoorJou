@@ -137,6 +137,8 @@ $statuses = statusOptions();
                 </td>
                 <td style="display:flex;gap:6px;flex-wrap:wrap;">
                   <a href="/portal/project.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline">Details</a>
+                  <a href="/portal/seo.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline">&#128269; SEO</a>
+                  <a href="/portal/social.php?id=<?= $p['id'] ?>" class="btn btn-sm btn-outline">&#128241; Social</a>
                   <?php if (in_array($p['status'], ['factuur_gestuurd','factuur_betaald'])): ?>
                     <?php
                       $invStmt = $db->prepare('SELECT id FROM invoices WHERE project_id = ? LIMIT 1');

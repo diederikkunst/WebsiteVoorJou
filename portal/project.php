@@ -246,9 +246,13 @@ $currentIdx = array_search($project['status'], $statusList);
             <?= packageLabel($project['package']) ?>
           </div>
         </div>
-        <?php if ($tokenRow): ?>
-          <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-primary">&#128065; Bekijk preview</a>
-        <?php endif; ?>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <a href="<?= BASE_PATH ?>/portal/seo.php?id=<?= $projectId ?>" class="btn btn-outline">&#128269; SEO-hulp</a>
+          <a href="<?= BASE_PATH ?>/portal/social.php?id=<?= $projectId ?>" class="btn btn-outline">&#128241; Social posts</a>
+          <?php if ($tokenRow): ?>
+            <a href="/preview.php?token=<?= htmlspecialchars($tokenRow['token']) ?>" target="_blank" class="btn btn-primary">&#128065; Bekijk preview</a>
+          <?php endif; ?>
+        </div>
       </div>
     </div>
 

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/social.php';
 
 requireAdminOrEmployee();
 $user = currentUser();
@@ -193,6 +194,17 @@ $invoice = $invoice->fetch();
 $tokenRow = $db->prepare('SELECT token, expires_at FROM preview_tokens WHERE project_id = ? AND expires_at > NOW() LIMIT 1');
 $tokenRow->execute([$projectId]);
 $tokenRow = $tokenRow->fetch();
+
+// SEO-gegevens van de klant
+$seoStmt = $db->prepare('SELECT * FROM project_seo WHERE project_id = ?');
+$seoStmt->execute([$projectId]);
+$seo = $seoStmt->fetch() ?: null;
+
+// Social media posts van de klant
+$socialStmt = $db->prepare("SELECT * FROM project_social_posts WHERE project_id = ? ORDER BY (status = 'ingepland') DESC, COALESCE(scheduled_at, created_at) DESC");
+$socialStmt->execute([$projectId]);
+$socialPosts = $socialStmt->fetchAll();
+$socialPlatformLabels = array_map(fn($p) => $p['label'], socialPlatforms());
 
 $statusList = ['nieuw','in_behandeling','preview_beschikbaar','afgerond','factuur_gestuurd','factuur_betaald'];
 $currentIdx = array_search($project['status'], $statusList);
@@ -441,6 +453,131 @@ $currentIdx = array_search($project['status'], $statusList);
         Aangemaakt: <?= formatDateTime($project['created_at']) ?> &bull;
         Laatste update: <?= formatDateTime($project['updated_at']) ?>
       </div>
+    </div>
+
+    <!-- SEO van de klant -->
+    <div class="card" style="margin-top:24px;">
+      <div class="card-header">
+        <h3 class="card-title">&#128269; SEO (input van klant)</h3>
+        <?php if ($seo && $seo['scanned_at']):
+          $sScore = (int)$seo['scan_score'];
+          $sColor = $sScore >= 80 ? 'var(--success)' : ($sScore >= 50 ? 'var(--warning)' : 'var(--danger)');
+        ?>
+          <span class="badge" style="background:<?= $sColor ?>;color:#fff;">Scan: <?= $sScore ?>/100</span>
+        <?php endif; ?>
+      </div>
+
+      <?php if (!$seo): ?>
+        <p class="text-muted">De klant heeft nog geen SEO-gegevens ingevuld.</p>
+      <?php else: ?>
+        <div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:8px;">
+          <div style="min-width:180px;">
+            <div class="form-label">Belangrijkste zoekwoord</div>
+            <strong><?= $seo['focus_keyword'] !== '' ? htmlspecialchars($seo['focus_keyword']) : '<span style="color:var(--text-muted);font-weight:400;">—</span>' ?></strong>
+          </div>
+          <div style="min-width:180px;">
+            <div class="form-label">Extra zoekwoorden</div>
+            <span><?= $seo['extra_keywords'] !== '' ? htmlspecialchars($seo['extra_keywords']) : '<span style="color:var(--text-muted);">—</span>' ?></span>
+          </div>
+          <div style="min-width:180px;">
+            <div class="form-label">Doelgroep</div>
+            <span><?= $seo['target_audience'] !== '' ? htmlspecialchars($seo['target_audience']) : '<span style="color:var(--text-muted);">—</span>' ?></span>
+          </div>
+        </div>
+
+        <?php if ($seo['meta_title'] !== '' || $seo['meta_description'] !== ''): ?>
+        <div class="divider"></div>
+        <?php if ($seo['meta_title'] !== ''): ?>
+          <div class="form-label">Paginatitel (meta title)</div>
+          <p style="margin-bottom:10px;"><?= htmlspecialchars($seo['meta_title']) ?> <span style="font-size:0.8rem;color:var(--text-muted);">(<?= mb_strlen($seo['meta_title']) ?> tekens)</span></p>
+        <?php endif; ?>
+        <?php if ($seo['meta_description'] !== ''): ?>
+          <div class="form-label">Meta-omschrijving</div>
+          <p style="margin-bottom:0;"><?= htmlspecialchars($seo['meta_description']) ?> <span style="font-size:0.8rem;color:var(--text-muted);">(<?= mb_strlen($seo['meta_description']) ?> tekens)</span></p>
+        <?php endif; ?>
+        <?php endif; ?>
+
+        <?php if (!empty($seo['notes'])): ?>
+          <div class="divider"></div>
+          <div class="form-label">Notitie van klant</div>
+          <p style="margin-bottom:0;"><?= nl2br(htmlspecialchars($seo['notes'])) ?></p>
+        <?php endif; ?>
+
+        <?php
+          $items   = seoChecklistItems();
+          $checked = $seo['checklist'] ? (json_decode($seo['checklist'], true) ?: []) : [];
+          $doneCnt = count(array_intersect(array_keys($items), $checked));
+        ?>
+        <div class="divider"></div>
+        <div class="form-label">Checklist (<?= $doneCnt ?>/<?= count($items) ?> afgerond)</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px;">
+          <?php foreach ($items as $k => $lbl): $ok = in_array($k, $checked, true); ?>
+            <span style="font-size:0.85rem;color:<?= $ok ? 'var(--text)' : 'var(--text-muted)' ?>;">
+              <?= $ok ? '&#10003;' : '&#9744;' ?> <?= htmlspecialchars($lbl) ?>
+            </span>
+          <?php endforeach; ?>
+        </div>
+
+        <?php
+          $sResults = $seo['scan_results'] ? (json_decode($seo['scan_results'], true) ?: []) : [];
+          if ($seo['scanned_at']):
+            $sIcon = ['good' => '&#10003;', 'warn' => '!', 'bad' => '&#10007;'];
+            $sCol  = ['good' => 'var(--success)', 'warn' => 'var(--warning)', 'bad' => 'var(--danger)'];
+        ?>
+        <div class="divider"></div>
+        <div class="form-label">Laatste website-scan — <?= formatDateTime($seo['scanned_at']) ?>
+          <?php if ($seo['scanned_url']): ?>(<a href="<?= htmlspecialchars($seo['scanned_url']) ?>" target="_blank" rel="noopener"><?= htmlspecialchars($seo['scanned_url']) ?></a>)<?php endif; ?>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px;">
+          <?php foreach ($sResults as $c): $st = $c['status'] ?? 'warn'; ?>
+            <span style="font-size:0.85rem;color:<?= $sCol[$st] ?? 'var(--warning)' ?>;" title="<?= htmlspecialchars($c['detail'] ?? '') ?>">
+              <?= $sIcon[$st] ?? '!' ?> <?= htmlspecialchars($c['label'] ?? '') ?>
+            </span>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+      <?php endif; ?>
+    </div>
+
+    <!-- Social media posts -->
+    <div class="card" style="margin-top:24px;">
+      <div class="card-header">
+        <h3 class="card-title">&#128241; Social media posts</h3>
+        <?php
+          $cntPlanned = count(array_filter($socialPosts, fn($p) => $p['status'] === 'ingepland'));
+          if ($cntPlanned): ?>
+          <span class="badge" style="background:rgba(217,119,6,0.12);color:var(--warning);"><?= $cntPlanned ?> ingepland</span>
+        <?php endif; ?>
+      </div>
+      <?php if (empty($socialPosts)): ?>
+        <p class="text-muted">De klant heeft nog geen posts opgeslagen.</p>
+      <?php else: ?>
+        <?php
+          $sBadge = [
+            'concept'   => '<span class="badge" style="background:var(--bg-2);color:var(--text-muted);border:1px solid var(--border);">Concept</span>',
+            'ingepland' => '<span class="badge" style="background:rgba(217,119,6,0.12);color:var(--warning);">Ingepland</span>',
+            'geplaatst' => '<span class="badge" style="background:rgba(5,150,105,0.12);color:var(--success);">Geplaatst</span>',
+            'mislukt'   => '<span class="badge" style="background:rgba(220,38,38,0.12);color:var(--danger);">Mislukt</span>',
+          ];
+        ?>
+        <?php foreach ($socialPosts as $sp): $pl = $socialPlatformLabels[$sp['platform']] ?? $sp['platform']; ?>
+          <div style="border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">
+              <strong><?= htmlspecialchars($pl) ?></strong>
+              <?= $sBadge[$sp['status']] ?? htmlspecialchars($sp['status']) ?>
+              <?php if ($sp['status'] === 'ingepland' && $sp['scheduled_at']): ?>
+                <span style="font-size:0.82rem;color:var(--text-muted);">&#128197; <?= formatDateTime($sp['scheduled_at']) ?></span>
+              <?php elseif ($sp['status'] === 'geplaatst' && $sp['posted_at']): ?>
+                <span style="font-size:0.82rem;color:var(--text-muted);">&#10003; <?= formatDateTime($sp['posted_at']) ?></span>
+              <?php endif; ?>
+              <?php if ($sp['result_msg']): ?>
+                <span style="font-size:0.78rem;color:var(--text-muted);">&middot; <?= htmlspecialchars($sp['result_msg']) ?></span>
+              <?php endif; ?>
+            </div>
+            <div style="font-size:0.85rem;color:var(--text);white-space:pre-wrap;"><?= htmlspecialchars(mb_strimwidth($sp['content'], 0, 400, '…')) ?></div>
+          </div>
+        <?php endforeach; ?>
+      <?php endif; ?>
     </div>
 
     <!-- Files -->

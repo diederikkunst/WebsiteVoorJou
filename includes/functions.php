@@ -50,6 +50,34 @@ function generateToken(int $length = 32): string {
     return bin2hex(random_bytes($length));
 }
 
+/**
+ * Controleert de geldigheid van een e-mailadres.
+ * Naast het formaat wordt gecontroleerd of het domein daadwerkelijk
+ * e-mail kan ontvangen (MX-record, met fallback naar een A/AAAA-record).
+ * Zo worden typefouten (bijv. "gmail.con") en niet-bestaande domeinen afgevangen.
+ *
+ * @param bool $checkDomain Zet op false om alleen het formaat te controleren (bijv. offline).
+ */
+function isValidEmail(string $email, bool $checkDomain = true): bool {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+    if (!$checkDomain) {
+        return true;
+    }
+    $domain = substr(strrchr($email, '@'), 1);
+    if ($domain === '' || $domain === false) {
+        return false;
+    }
+    // DNS-functies vereisen een punt-getermineerde hostnaam voor betrouwbare lookups.
+    $host = rtrim($domain, '.') . '.';
+    // Geldig zodra er een MX-record is, of anders een A/AAAA-record (mail mag dan naar de host).
+    if (function_exists('checkdnsrr')) {
+        return checkdnsrr($host, 'MX') || checkdnsrr($host, 'A') || checkdnsrr($host, 'AAAA');
+    }
+    return true; // DNS-check niet beschikbaar — val terug op formaatcontrole.
+}
+
 function createPreviewToken(int $projectId): string {
     $db = getDB();
     $token = generateToken(32);
@@ -100,6 +128,223 @@ function saveUpload(array $file, string $subdir): ?string {
         return $subdir . '/' . $filename;
     }
     return null;
+}
+
+/**
+ * SEO-checklist: gedeelde definitie (key => label) voor portal en admin.
+ */
+function seoChecklistItems(): array {
+    return [
+        'keyword'    => 'Belangrijkste zoekwoord gekozen waarop je gevonden wilt worden',
+        'title_desc' => 'Elke pagina heeft een unieke titel en meta-omschrijving',
+        'headings'   => 'Duidelijke koppen (H1/H2) met je zoekwoord',
+        'alt'        => 'Alt-teksten bij alle afbeeldingen',
+        'mobile'     => 'Website werkt goed op mobiel',
+        'speed'      => 'Snelle laadtijd (afbeeldingen geoptimaliseerd)',
+        'gbp'        => 'Google Bedrijfsprofiel aangemaakt (Google Business Profile)',
+        'gsc'        => 'Sitemap ingediend bij Google Search Console',
+        'internal'   => 'Interne links tussen je pagina\'s',
+        'nap'        => 'Naam, adres en telefoonnummer duidelijk vermeld',
+        'reviews'    => 'Reviews verzamelen (Google / social media)',
+        'content'    => 'Regelmatig nieuwe, relevante inhoud toevoegen',
+    ];
+}
+
+/**
+ * Haalt een URL op voor de SEO-scan.
+ * Geeft ['ok'=>bool, 'html'=>string, 'http'=>int, 'final_url'=>string, 'error'=>string] terug.
+ */
+function seoFetchUrl(string $url): array {
+    $out = ['ok' => false, 'html' => '', 'http' => 0, 'final_url' => $url, 'error' => ''];
+
+    if (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url)) {
+        $out['error'] = 'Ongeldige URL. Gebruik een volledig adres, bijv. https://jouwsite.nl';
+        return $out;
+    }
+    if (!function_exists('curl_init')) {
+        $out['error'] = 'De server kan geen websites ophalen (curl ontbreekt).';
+        return $out;
+    }
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER         => false,
+        CURLOPT_TIMEOUT        => 20,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_MAXREDIRS      => 5,
+        CURLOPT_USERAGENT      => 'Mozilla/5.0 (compatible; WebsiteVoorJou-SEO/1.0)',
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_ENCODING       => '',
+    ]);
+    $body  = curl_exec($ch);
+    $out['http']      = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $out['final_url'] = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL) ?: $url;
+    $err   = curl_error($ch);
+    curl_close($ch);
+
+    if ($body === false || $out['http'] === 0) {
+        $out['error'] = 'De website kon niet worden geladen.' . ($err ? ' (' . $err . ')' : '');
+        return $out;
+    }
+    if ($out['http'] >= 400) {
+        $out['error'] = 'De website gaf een foutcode terug (HTTP ' . $out['http'] . ').';
+        return $out;
+    }
+    $out['ok']   = true;
+    $out['html'] = $body;
+    return $out;
+}
+
+/**
+ * Analyseert opgehaalde HTML op SEO-basis en geeft een score (0-100) + checks terug.
+ * Elke check: ['label','status'(good|warn|bad),'detail','advice','weight'].
+ */
+function seoAnalyze(string $html, string $finalUrl, string $focusKeyword = ''): array {
+    $checks = [];
+    $add = function (string $label, string $status, string $detail, string $advice, int $weight) use (&$checks) {
+        $checks[] = compact('label', 'status', 'detail', 'advice', 'weight');
+    };
+
+    $dom = new DOMDocument();
+    libxml_use_internal_errors(true);
+    $dom->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+    libxml_clear_errors();
+    $xp = new DOMXPath($dom);
+
+    $textOf = function (?DOMNode $n): string {
+        return $n ? trim(preg_replace('/\s+/', ' ', $n->textContent)) : '';
+    };
+
+    // Title
+    $titleNode = $dom->getElementsByTagName('title')->item(0);
+    $title = $textOf($titleNode);
+    $tlen  = mb_strlen($title);
+    if ($title === '') {
+        $add('Paginatitel (<title>)', 'bad', 'Geen titel gevonden.', 'Geef elke pagina een unieke, beschrijvende titel van 30–60 tekens.', 15);
+    } elseif ($tlen < 15 || $tlen > 65) {
+        $add('Paginatitel (<title>)', 'warn', '"' . $title . '" (' . $tlen . ' tekens).', 'Streef naar 30–60 tekens met je belangrijkste zoekwoord vooraan.', 15);
+    } else {
+        $add('Paginatitel (<title>)', 'good', '"' . $title . '" (' . $tlen . ' tekens).', '', 15);
+    }
+
+    // Meta description
+    $descNode = $xp->query('//meta[translate(@name,"DESCRIPTION","description")="description"]')->item(0);
+    $desc = $descNode ? trim($descNode->getAttribute('content')) : '';
+    $dlen = mb_strlen($desc);
+    if ($desc === '') {
+        $add('Meta-omschrijving', 'bad', 'Geen meta-omschrijving gevonden.', 'Voeg een wervende samenvatting van 120–160 tekens toe; dit is de tekst onder je link in Google.', 15);
+    } elseif ($dlen < 70 || $dlen > 165) {
+        $add('Meta-omschrijving', 'warn', $dlen . ' tekens.', 'Streef naar 120–160 tekens, inclusief je zoekwoord en een uitnodiging om te klikken.', 15);
+    } else {
+        $add('Meta-omschrijving', 'good', $dlen . ' tekens.', '', 15);
+    }
+
+    // H1
+    $h1 = $xp->query('//h1');
+    if ($h1->length === 0) {
+        $add('Hoofdkop (H1)', 'bad', 'Geen H1 gevonden.', 'Elke pagina hoort één duidelijke H1 te hebben die het onderwerp benoemt.', 12);
+    } elseif ($h1->length > 1) {
+        $add('Hoofdkop (H1)', 'warn', $h1->length . ' H1-koppen gevonden.', 'Gebruik bij voorkeur één H1 per pagina; de rest als H2/H3.', 12);
+    } else {
+        $add('Hoofdkop (H1)', 'good', '"' . $textOf($h1->item(0)) . '"', '', 12);
+    }
+
+    // Subkoppen
+    $h2 = $xp->query('//h2');
+    if ($h2->length === 0) {
+        $add('Subkoppen (H2)', 'warn', 'Geen H2-koppen gevonden.', 'Verdeel je tekst met H2-koppen — prettig voor lezers én Google.', 8);
+    } else {
+        $add('Subkoppen (H2)', 'good', $h2->length . ' subkop(pen).', '', 8);
+    }
+
+    // Afbeeldingen + alt
+    $imgs = $xp->query('//img');
+    $missingAlt = 0;
+    foreach ($imgs as $img) {
+        if (trim($img->getAttribute('alt')) === '') $missingAlt++;
+    }
+    if ($imgs->length === 0) {
+        $add('Alt-teksten bij afbeeldingen', 'warn', 'Geen afbeeldingen gevonden.', 'Afbeeldingen met goede alt-teksten helpen vindbaarheid en toegankelijkheid.', 10);
+    } elseif ($missingAlt > 0) {
+        $add('Alt-teksten bij afbeeldingen', 'bad', $missingAlt . ' van ' . $imgs->length . ' afbeelding(en) mist een alt-tekst.', 'Geef elke afbeelding een korte beschrijving (alt) van wat erop staat.', 10);
+    } else {
+        $add('Alt-teksten bij afbeeldingen', 'good', 'Alle ' . $imgs->length . ' afbeelding(en) hebben een alt-tekst.', '', 10);
+    }
+
+    // Viewport / mobielvriendelijk
+    $viewport = $xp->query('//meta[@name="viewport"]')->item(0);
+    if ($viewport) {
+        $add('Mobielvriendelijk', 'good', 'Viewport-instelling aanwezig.', '', 8);
+    } else {
+        $add('Mobielvriendelijk', 'bad', 'Geen viewport-meta gevonden.', 'Voeg een viewport-meta toe zodat de site goed schaalt op mobiel.', 8);
+    }
+
+    // HTTPS
+    if (stripos($finalUrl, 'https://') === 0) {
+        $add('Beveiligde verbinding (HTTPS)', 'good', 'De site gebruikt HTTPS.', '', 7);
+    } else {
+        $add('Beveiligde verbinding (HTTPS)', 'bad', 'De site gebruikt geen HTTPS.', 'Stel een SSL-certificaat in; Google geeft beveiligde sites voorrang.', 7);
+    }
+
+    // Taal
+    $lang = trim($dom->documentElement ? $dom->documentElement->getAttribute('lang') : '');
+    if ($lang !== '') {
+        $add('Taalinstelling', 'good', 'lang="' . $lang . '"', '', 5);
+    } else {
+        $add('Taalinstelling', 'warn', 'Geen taal ingesteld op <html>.', 'Stel de taal in (bijv. <html lang="nl">) voor betere indexering.', 5);
+    }
+
+    // Canonical
+    $canonical = $xp->query('//link[@rel="canonical"]')->item(0);
+    if ($canonical) {
+        $add('Canonieke URL', 'good', 'Canonical-link aanwezig.', '', 5);
+    } else {
+        $add('Canonieke URL', 'warn', 'Geen canonical-link gevonden.', 'Een canonical-link voorkomt dubbele-inhoud problemen.', 5);
+    }
+
+    // Open Graph (social delen)
+    $ogTitle = $xp->query('//meta[@property="og:title"]')->item(0);
+    $ogDesc  = $xp->query('//meta[@property="og:description"]')->item(0);
+    if ($ogTitle && $ogDesc) {
+        $add('Social media (Open Graph)', 'good', 'Open Graph-tags aanwezig.', '', 5);
+    } else {
+        $add('Social media (Open Graph)', 'warn', 'Open Graph-tags ontbreken (deels).', 'Voeg og:title, og:description en og:image toe voor mooie previews bij delen.', 5);
+    }
+
+    // Focus-zoekwoord
+    if (trim($focusKeyword) !== '') {
+        $kw = mb_strtolower(trim($focusKeyword));
+        $bodyText = mb_strtolower($textOf($dom->getElementsByTagName('body')->item(0)));
+        $inTitle = mb_strpos(mb_strtolower($title), $kw) !== false;
+        $inDesc  = mb_strpos(mb_strtolower($desc), $kw) !== false;
+        $inH1    = $h1->length && mb_strpos(mb_strtolower($textOf($h1->item(0))), $kw) !== false;
+        $inBody  = mb_strpos($bodyText, $kw) !== false;
+        $hits = ($inTitle ? 1 : 0) + ($inDesc ? 1 : 0) + ($inH1 ? 1 : 0);
+        if ($hits >= 2) {
+            $add('Zoekwoord "' . $focusKeyword . '"', 'good', 'Komt voor in titel/omschrijving/kop.', '', 10);
+        } elseif ($inBody || $hits >= 1) {
+            $add('Zoekwoord "' . $focusKeyword . '"', 'warn', 'Komt beperkt voor.', 'Gebruik je zoekwoord in de titel, de H1 én de meta-omschrijving.', 10);
+        } else {
+            $add('Zoekwoord "' . $focusKeyword . '"', 'bad', 'Niet gevonden op de pagina.', 'Verwerk je zoekwoord op natuurlijke wijze in titel, koppen en tekst.', 10);
+        }
+    }
+
+    // Score berekenen (good = vol, warn = half, bad = 0)
+    $total = 0; $earned = 0;
+    foreach ($checks as $c) {
+        $total += $c['weight'];
+        $earned += $c['status'] === 'good' ? $c['weight'] : ($c['status'] === 'warn' ? $c['weight'] / 2 : 0);
+    }
+    $score = $total > 0 ? (int)round($earned / $total * 100) : 0;
+
+    return [
+        'score'  => $score,
+        'checks' => $checks,
+        'meta'   => ['title' => $title, 'description' => $desc],
+    ];
 }
 
 function sendMail(string $to, string $subject, string $htmlBody, string $toName = '', string $type = 'overig', string $replyTo = ''): bool {

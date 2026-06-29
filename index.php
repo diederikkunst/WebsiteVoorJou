@@ -33,8 +33,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_form'])) {
         try {
             $db = getDB();
 
+            // Controleer of het e-maildomein daadwerkelijk bestaat (MX/DNS)
+            if (!isValidEmail($email)) {
+                $error = 'Dit e-mailadres lijkt niet te bestaan. Controleer op typefouten in het domein.';
+            }
+
             // Valideer wachtwoord als account aanmaken
-            if ($createAccount) {
+            if (!$error && $createAccount) {
                 if (strlen($password) < 8) {
                     $error = 'Wachtwoord moet minimaal 8 tekens zijn.';
                 } elseif ($password !== $password2) {

@@ -24,6 +24,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Vul alle verplichte velden in.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Voer een geldig e-mailadres in.';
+    } elseif (!isValidEmail($email)) {
+        $error = 'Dit e-mailadres lijkt niet te bestaan. Controleer op typefouten in het domein.';
     } elseif (strlen($password) < 8) {
         $error = 'Wachtwoord moet minimaal 8 tekens bevatten.';
     } elseif ($password !== $confirm) {

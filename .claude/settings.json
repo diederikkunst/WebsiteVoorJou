@@ -36,7 +36,17 @@
       "Bash(git push *)",
       "Bash(git reset *)",
       "Bash(git restore *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(php -l includes/functions.php)",
+      "Bash(php -l portal/seo.php)",
+      "Bash(php -l portal/project.php)",
+      "Bash(php -l register.php)",
+      "Bash(php -l index.php)",
+      "Bash(php -l admin/project-detail.php)",
+      "Bash(php -l includes/social.php)",
+      "Bash(php -l portal/social.php)",
+      "Bash(php -l scheduler.php)",
+      "Bash(php -l portal/social_diag.php)"
     ]
   }
 }
