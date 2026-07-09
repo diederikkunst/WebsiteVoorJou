@@ -62,7 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <input type="email" name="email" class="form-control" placeholder="jij@bedrijf.nl" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" autofocus required>
         </div>
         <div class="form-group">
-          <label class="form-label">Wachtwoord</label>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <label class="form-label">Wachtwoord</label>
+            <a href="<?= BASE_PATH ?>/forgot-password.php" style="font-size:0.82rem;color:var(--text-muted);">Wachtwoord vergeten?</a>
+          </div>
           <input type="password" name="password" class="form-control" placeholder="••••••••" required>
         </div>
         <button type="submit" class="btn btn-primary w-full" style="margin-top:8px;">

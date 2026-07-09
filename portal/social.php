@@ -32,28 +32,32 @@ function loadSocial(PDO $db, int $projectId): ?array {
 }
 $social = loadSocial($db, $projectId);
 
-// SEO-doelgroep als fallback voor de doelgroep
-$seoRow = $db->prepare('SELECT target_audience FROM project_seo WHERE project_id = ?');
-$seoRow->execute([$projectId]);
-$seoAudience = $seoRow->fetchColumn() ?: '';
+// Gedeelde klantcontext (profiel + project + SEO + Social)
+$ctx = clientContext($db, $project, $client);
 
+// Merkstem: eigen ingevulde waarden, met de bekende klant-input als voorvulling.
+// "Wat doen we" valt terug op de projectomschrijving die de klant bij dit project gaf.
+$businessPrefilled = trim($social['business'] ?? '') === '' && $ctx['project_desc'] !== '';
 $brand = [
-    'business' => $social['business'] ?? '',
-    'audience' => $social['audience'] ?? $seoAudience,
+    'business' => trim($social['business'] ?? '') ?: $ctx['project_desc'],
+    'audience' => trim($social['audience'] ?? '') ?: $ctx['audience'],
     'voice'    => $social['voice'] ?? '',
     'pillars'  => $social['pillars'] ?? '',
     'example'  => $social['example_post'] ?? '',
+    // Uit andere bronnen — gaan mee in de AI-prompt maar staan niet in het formulier
+    'website'  => $ctx['website'],
+    'keywords' => $ctx['keywords'],
 ];
-if ($brand['audience'] === '') $brand['audience'] = $seoAudience;
 
-$companyName = trim($client['name'] ?? '') ?: $project['name'];
+$companyName = $ctx['company'];
 $platforms   = socialPlatforms();
 $goals       = socialGoals();
 
 $error = $success = '';
 $activeTab = $_POST['tab'] ?? 'post';
-$genPrompt = '';   // gegenereerde prompt (copy-paste)
-$genResult = null; // ['ok'=>bool,'text'=>...,'error'=>...] bij live AI
+$genPrompt = '';     // gegenereerde prompt (copy-paste)
+$genResult = null;   // ['ok'=>bool,'text'=>...,'error'=>...] bij live AI
+$genMultiPosts = null; // [['platform'=>key,'label'=>..,'content'=>..], ...] bij "1 idee → meerdere posts"
 
 // --- Merkstem opslaan ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_brand'])) {
@@ -75,7 +79,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_brand'])) {
     }
     $success = 'Merkstem opgeslagen — je posts worden hier nu op afgestemd.';
     $social = loadSocial($db, $projectId);
-    $brand = ['business' => $fields['business'], 'audience' => $fields['audience'], 'voice' => $fields['voice'], 'pillars' => $fields['pillars'], 'example' => $fields['example_post']];
+    $brand = array_merge($brand, [
+        'business' => $fields['business'],
+        'audience' => $fields['audience'] !== '' ? $fields['audience'] : $ctx['audience'],
+        'voice'    => $fields['voice'],
+        'pillars'  => $fields['pillars'],
+        'example'  => $fields['example_post'],
+    ]);
     $activeTab = 'merkstem';
 }
 
@@ -89,8 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gen_post'])) {
     $doel      = $_POST['doel'] ?? 'engagement';
     $cta       = trim($_POST['cta'] ?? 'reageren') ?: 'reageren';
     if (!isset($platforms[$pk])) $pk = 'linkedin';
+    // Leeg onderwerp → val terug op de projectbeschrijving (of het bedrijfsprofiel)
     if ($onderwerp === '') {
-        $error = 'Vul een onderwerp in voor je post.';
+        $onderwerp = $ctx['project_desc'] ?: $brand['business'];
+    }
+    if (trim($onderwerp) === '') {
+        $error = 'Vul een onderwerp in, of vul eerst de projectbeschrijving / merkstem in.';
     } else {
         $genPrompt = socialPromptPlatformPost($platforms[$pk], $onderwerp, $goals[$doel] ?? $doel, $cta);
         if (isset($_POST['use_ai']) && socialAiEnabled()) {
@@ -103,14 +117,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gen_multiply'])) {
     $activeTab = 'multiply';
     $idee = trim($_POST['idee'] ?? '');
     $keys = array_values(array_intersect(array_keys($platforms), $_POST['platforms'] ?? []));
+    // Leeg idee → val terug op de projectbeschrijving (of het bedrijfsprofiel)
     if ($idee === '') {
-        $error = 'Vul een idee of inzicht in.';
+        $idee = $ctx['project_desc'] ?: $brand['business'];
+    }
+    if (trim($idee) === '') {
+        $error = 'Vul een idee in, of vul eerst de projectbeschrijving / merkstem in.';
     } elseif (empty($keys)) {
         $error = 'Kies minstens één platform.';
     } else {
         $genPrompt = socialPromptMultiply($idee, $keys);
         if (isset($_POST['use_ai']) && socialAiEnabled()) {
-            $genResult = socialGenerate($systemPrompt, $genPrompt);
+            // Vraag gestructureerde JSON zodat elke post apart opgeslagen kan worden
+            $allowed = implode(', ', $keys);
+            $jsonPrompt = "Idee/inzicht:\n{$idee}\n\n"
+                . "Maak per onderstaand platform één publicatieklare post (in onze tone of voice, binnen de tekenlimiet, elk uniek).\n"
+                . "Platforms (gebruik exact deze sleutels): {$allowed}\n\n"
+                . 'Antwoord UITSLUITEND met geldige JSON in dit formaat, zonder toelichting of codeblokken: '
+                . '{"posts":[{"platform":"<sleutel>","content":"<de posttekst>"}]}';
+            $res = aiComplete($systemPrompt, $jsonPrompt, 0.8);
+            if (!$res['ok']) {
+                $genResult = $res; // toon foutmelding
+            } else {
+                $clean = trim(preg_replace('/^```(?:json)?|```$/m', '', $res['text']));
+                $data  = json_decode($clean, true);
+                $posts = is_array($data) ? ($data['posts'] ?? $data) : null;
+                if (is_array($posts)) {
+                    $genMultiPosts = [];
+                    foreach ($posts as $p) {
+                        $pk = strtolower(trim((string)($p['platform'] ?? '')));
+                        $content = trim((string)($p['content'] ?? ''));
+                        if (!isset($platforms[$pk])) {
+                            // probeer op label te matchen
+                            foreach ($platforms as $k => $meta) {
+                                if (strcasecmp($meta['label'], (string)($p['platform'] ?? '')) === 0) { $pk = $k; break; }
+                            }
+                        }
+                        if (isset($platforms[$pk]) && $content !== '') {
+                            $genMultiPosts[] = ['platform' => $pk, 'label' => $platforms[$pk]['label'], 'content' => $content];
+                        }
+                    }
+                    if (empty($genMultiPosts)) { $genMultiPosts = null; $genResult = $res; } // val terug op ruwe tekst
+                } else {
+                    $genResult = $res; // niet-parsebaar → toon ruwe tekst
+                }
+            }
         }
     }
 }
@@ -141,6 +192,24 @@ function ownPost(PDO $db, int $projectId, int $postId): ?array {
     $s = $db->prepare('SELECT * FROM project_social_posts WHERE id = ? AND project_id = ?');
     $s->execute([$postId, $projectId]);
     return $s->fetch() ?: null;
+}
+
+// Meerdere gegenereerde posts in één keer opslaan als concept
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_all_posts'])) {
+    $activeTab = 'posts';
+    $pls  = $_POST['ml_platform'] ?? [];
+    $cnts = $_POST['ml_content'] ?? [];
+    $saved = 0;
+    $stmt = $db->prepare('INSERT INTO project_social_posts (project_id, platform, content, status, created_by) VALUES (?, ?, ?, \'concept\', ?)');
+    for ($i = 0; $i < count($pls); $i++) {
+        $pk = $pls[$i] ?? '';
+        $content = trim($cnts[$i] ?? '');
+        if (isset($platforms[$pk]) && $content !== '') {
+            $stmt->execute([$projectId, $pk, $content, $user['id']]);
+            $saved++;
+        }
+    }
+    $success = $saved > 0 ? "$saved post(s) opgeslagen als concept." : 'Geen posts opgeslagen.';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_post'])) {
@@ -246,6 +315,10 @@ function tabClass(string $tab, string $active): string {
     .platform-pick { display:flex;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;font-size:0.9rem; }
     .freq-row { display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border); }
     .freq-row input { width:64px; }
+    .btn.is-loading { opacity:0.85; cursor:progress; }
+    button:disabled { cursor:not-allowed; }
+    .btn-spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.45);border-top-color:#fff;border-radius:50%;animation:btnspin 0.6s linear infinite;vertical-align:-2px;margin-right:4px; }
+    @keyframes btnspin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -375,8 +448,9 @@ function tabClass(string $tab, string $active): string {
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Onderwerp</label>
+            <label class="form-label">Onderwerp <span style="font-weight:400;color:var(--text-muted);">(optioneel)</span></label>
             <input type="text" name="onderwerp" class="form-control" placeholder="Waar gaat de post over?" value="<?= htmlspecialchars($_POST['onderwerp'] ?? '') ?>">
+            <p class="form-hint">Laat leeg om automatisch de projectbeschrijving te gebruiken.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Call-to-action</label>
@@ -400,8 +474,9 @@ function tabClass(string $tab, string $active): string {
         <form method="post">
           <input type="hidden" name="tab" value="multiply">
           <div class="form-group">
-            <label class="form-label">Jouw idee, inzicht of resultaat</label>
+            <label class="form-label">Jouw idee, inzicht of resultaat <span style="font-weight:400;color:var(--text-muted);">(optioneel)</span></label>
             <textarea name="idee" class="form-control" rows="3" placeholder="bijv. Klant X bespaarde 5 uur per week dankzij onze nieuwe website."><?= htmlspecialchars($_POST['idee'] ?? '') ?></textarea>
+            <p class="form-hint">Laat leeg om automatisch de projectbeschrijving te gebruiken.</p>
           </div>
           <div class="form-group">
             <label class="form-label">Voor welke platforms?</label>
@@ -423,6 +498,46 @@ function tabClass(string $tab, string $active): string {
           </div>
         </form>
       </div>
+      <?php if ($activeTab === 'multiply' && $genMultiPosts): ?>
+        <div class="card" style="margin-top:20px;border-color:var(--primary);">
+          <div class="card-header">
+            <h3 class="card-title">&#10003; <?= count($genMultiPosts) ?> gegenereerde posts</h3>
+            <form method="post" style="margin:0;">
+              <input type="hidden" name="tab" value="posts">
+              <?php foreach ($genMultiPosts as $mp): ?>
+                <input type="hidden" name="ml_platform[]" value="<?= htmlspecialchars($mp['platform']) ?>">
+                <input type="hidden" name="ml_content[]" value="<?= htmlspecialchars($mp['content'], ENT_QUOTES) ?>">
+              <?php endforeach; ?>
+              <button type="submit" name="save_all_posts" value="1" class="btn btn-sm btn-primary">&#128190; Bewaar alle als concept</button>
+            </form>
+          </div>
+          <?php foreach ($genMultiPosts as $mp): ?>
+            <div style="border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
+                <strong><?= htmlspecialchars($mp['label']) ?></strong>
+                <button type="button" class="btn btn-sm btn-outline" data-copy="<?= htmlspecialchars($mp['content'], ENT_QUOTES) ?>">Kopieer</button>
+              </div>
+              <div class="social-result" style="font-size:0.88rem;margin-bottom:10px;"><?= htmlspecialchars($mp['content']) ?></div>
+              <form method="post" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:0;">
+                <input type="hidden" name="tab" value="posts">
+                <input type="hidden" name="post_platform" value="<?= htmlspecialchars($mp['platform']) ?>">
+                <input type="hidden" name="post_content" value="<?= htmlspecialchars($mp['content'], ENT_QUOTES) ?>">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label class="form-label">Inplannen (optioneel)</label>
+                  <input type="datetime-local" name="post_schedule" class="form-control">
+                </div>
+                <?php if (socialRequiresImage($mp['platform'])): ?>
+                  <div class="form-group" style="margin-bottom:0;flex:1;min-width:200px;">
+                    <label class="form-label">Afbeelding-URL (verplicht)</label>
+                    <input type="url" name="post_image" class="form-control" placeholder="https://...">
+                  </div>
+                <?php endif; ?>
+                <button type="submit" name="save_post" value="1" class="btn btn-sm btn-primary">&#128190; Opslaan</button>
+              </form>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
       <?php if ($activeTab === 'multiply') $renderResult(); ?>
     </div>
 
@@ -622,12 +737,24 @@ function tabClass(string $tab, string $active): string {
         <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:16px;">
           Hoe beter je dit invult, hoe beter de posts bij jouw merk passen. Deze info gaat automatisch mee bij elke post.
         </p>
+        <?php if ($ctx['company'] || $ctx['website'] || $ctx['keywords']): ?>
+        <div class="alert alert-info" style="margin-bottom:16px;font-size:0.85rem;">
+          &#128279; We gebruiken automatisch je bekende gegevens in elke post:
+          <strong><?= htmlspecialchars($ctx['company']) ?></strong><?php
+            if ($ctx['website']) echo ' &middot; ' . htmlspecialchars($ctx['website']);
+            if ($ctx['keywords']) echo ' &middot; zoekwoorden uit SEO: ' . htmlspecialchars($ctx['keywords']);
+          ?>. Je hoeft die dus niet opnieuw in te vullen.
+        </div>
+        <?php endif; ?>
         <form method="post">
           <input type="hidden" name="tab" value="merkstem">
           <input type="hidden" name="save_brand" value="1">
           <div class="form-group">
             <label class="form-label">Wat doet je bedrijf / wat bied je aan?</label>
-            <input type="text" name="business" class="form-control" placeholder="bijv. Wij maken betaalbare websites voor het MKB" value="<?= htmlspecialchars($brand['business']) ?>">
+            <textarea name="business" class="form-control" rows="2" placeholder="bijv. Wij maken betaalbare websites voor het MKB"><?= htmlspecialchars($brand['business']) ?></textarea>
+            <?php if ($businessPrefilled): ?>
+              <p class="form-hint">&#128161; Overgenomen uit de omschrijving van dit project. Pas gerust aan.</p>
+            <?php endif; ?>
           </div>
           <div class="form-group">
             <label class="form-label">Doelgroep</label>
@@ -665,19 +792,32 @@ function tabClass(string $tab, string $active): string {
       document.querySelectorAll('.social-panel').forEach(function (p) { p.classList.toggle('active', p.dataset.panel === tab); });
     });
   });
-  // "Genereren met AI"-knoppen zetten use_ai aan
+  // "Genereren met AI"-knoppen: use_ai aanzetten + laadindicator tonen
   document.querySelectorAll('button.btn-primary[name^="gen_"]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var f = btn.closest('form');
       if (!f) return;
-      var hidden = f.querySelector('input[name="use_ai"]');
-      if (!hidden) {
-        hidden = document.createElement('input');
-        hidden.type = 'hidden';
-        hidden.name = 'use_ai';
-        hidden.value = '1';
+
+      // use_ai meesturen
+      if (!f.querySelector('input[name="use_ai"]')) {
+        var hidden = document.createElement('input');
+        hidden.type = 'hidden'; hidden.name = 'use_ai'; hidden.value = '1';
         f.appendChild(hidden);
       }
+
+      // Naam/waarde van de submit-knop als verborgen veld meesturen,
+      // zodat we de knop veilig mogen uitschakelen zonder de POST te breken.
+      var mirror = document.createElement('input');
+      mirror.type = 'hidden'; mirror.name = btn.name; mirror.value = btn.value || '1';
+      f.appendChild(mirror);
+
+      // Laadindicator op de knop
+      btn.classList.add('is-loading');
+      btn.innerHTML = '<span class="btn-spinner"></span> Bezig met genereren…';
+      btn.disabled = true;
+
+      // Overige knoppen in dit formulier ook blokkeren
+      f.querySelectorAll('button').forEach(function (b) { if (b !== btn) b.disabled = true; });
     });
   });
 </script>

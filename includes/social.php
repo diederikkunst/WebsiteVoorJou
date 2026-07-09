@@ -94,13 +94,18 @@ function socialSystemPrompt(string $companyName, array $brand): string {
     $voice    = trim($brand['voice'] ?? '') ?: 'Toegankelijk, helder en betrouwbaar; geen jargon.';
     $pillars  = trim($brand['pillars'] ?? '');
     $example  = trim($brand['example'] ?? '');
+    $website  = trim($brand['website'] ?? '');
+    $keywords = trim($brand['keywords'] ?? '');
 
     $out  = "Je bent de social media manager van {$companyName}.\n";
     $out .= "Je schrijft altijd in de unieke stem van dit bedrijf.\n\n";
     $out .= "OVER HET BEDRIJF:\n";
     $out .= "Naam: {$companyName}\n";
+    if ($website !== '') $out .= "Website: {$website}\n";
     $out .= "Wat we doen: {$business}\n";
-    $out .= "Doelgroep: {$audience}\n\n";
+    $out .= "Doelgroep: {$audience}\n";
+    if ($keywords !== '') $out .= "Belangrijke zoekwoorden (verwerk waar passend, geforceerd vermijden): {$keywords}\n";
+    $out .= "\n";
     $out .= "TONE OF VOICE:\n{$voice}\n";
     if ($pillars !== '') {
         $out .= "\nCONTENTPIJLERS (thema's waarover we posten):\n{$pillars}\n";

@@ -11,6 +11,8 @@ CREATE TABLE users (
     email_verified TINYINT(1) DEFAULT 0,
     email_verification_token VARCHAR(64) NULL,
     email_verification_sent_at DATETIME NULL,
+    password_reset_token VARCHAR(64) NULL,
+    password_reset_expires DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

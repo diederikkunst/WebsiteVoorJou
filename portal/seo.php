@@ -61,6 +61,15 @@ $seo     = loadSeo($db, $projectId);
 $error   = '';
 $success = '';
 
+// Gedeelde klantcontext — vult bekende input voor (o.a. doelgroep uit Social)
+$ctx = clientContext($db, $project, $client);
+// Doelgroep voorvullen vanuit Social als die in SEO nog leeg is
+$audiencePrefilled = false;
+if (trim($seo['target_audience'] ?? '') === '' && $ctx['audience'] !== '') {
+    $seo['target_audience'] = $ctx['audience'];
+    $audiencePrefilled = true;
+}
+
 // Checklist-definitie (key => label) — gedeeld met de admin
 $CHECKLIST = seoChecklistItems();
 
@@ -110,6 +119,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['run_scan'])) {
             $seo = loadSeo($db, $projectId);
         }
     }
+}
+
+// Projectbeschrijving (zonder interne go-live-markering) als analysebron
+$projectDesc = trim(preg_replace('/\[GO-LIVE VERZOEK:[^\]]*\]/', '', $project['description'] ?? ''));
+
+// --- POST: zoekwoorden-analyse op basis van de projectbeschrijving ---
+$kwAnalysis = null; // ['source'=>'ai'|'lokaal', 'focus','extra'(csv),'meta_title','meta_description','audience','keywords'(arr),'phrases'(arr)]
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['analyze_keywords'])) {
+    if ($projectDesc === '') {
+        $error = 'Er is nog geen projectbeschrijving. Vul die eerst in bij je project.';
+    } elseif (aiEnabled()) {
+        $sys = 'Je bent een Nederlandse SEO-specialist. Antwoord UITSLUITEND met geldige JSON, zonder toelichting of codeblokken.';
+        $usr = "Analyseer de volgende bedrijfs-/projectbeschrijving en stel SEO-zoekwoorden voor waarop dit bedrijf gevonden wil worden.\n"
+             . 'Bedrijf: ' . ($ctx['company'] ?: '-') . "\n"
+             . ($ctx['website'] ? 'Website: ' . $ctx['website'] . "\n" : '')
+             . ($ctx['audience'] ? 'Bekende doelgroep: ' . $ctx['audience'] . "\n" : '')
+             . "Beschrijving:\n" . $projectDesc . "\n\n"
+             . 'Geef JSON met exact deze velden: {"focus_keyword": string, "extra_keywords": [5-8 strings], '
+             . '"meta_title": string (max 60 tekens), "meta_description": string (120-160 tekens), "target_audience": string}. '
+             . 'Gebruik natuurlijke, realistische zoektermen (incl. lokale/branchetermen waar passend).';
+        $res = aiComplete($sys, $usr, 0.5);
+        if (!$res['ok']) {
+            $error = $res['error'];
+        } else {
+            $json = trim(preg_replace('/^```(?:json)?|```$/m', '', $res['text']));
+            $data = json_decode($json, true);
+            if (!is_array($data)) {
+                $error = 'De AI-analyse kon niet worden gelezen. Probeer het opnieuw.';
+            } else {
+                $extra = $data['extra_keywords'] ?? [];
+                if (is_array($extra)) $extra = implode(', ', array_map('strval', $extra));
+                $kwAnalysis = [
+                    'source'           => 'ai',
+                    'focus'            => trim((string)($data['focus_keyword'] ?? '')),
+                    'extra'            => trim((string)$extra),
+                    'meta_title'       => trim((string)($data['meta_title'] ?? '')),
+                    'meta_description' => trim((string)($data['meta_description'] ?? '')),
+                    'audience'         => trim((string)($data['target_audience'] ?? '')),
+                ];
+            }
+        }
+    } else {
+        // Geen AI: lokale woordanalyse
+        $local = seoKeywordsFromText($projectDesc);
+        $kwAnalysis = [
+            'source'   => 'lokaal',
+            'focus'    => $local['phrases'][0] ?? ($local['keywords'][0] ?? ''),
+            'extra'    => implode(', ', array_slice(array_merge($local['phrases'], $local['keywords']), 0, 8)),
+            'keywords' => $local['keywords'],
+            'phrases'  => $local['phrases'],
+        ];
+    }
+}
+
+// --- POST: analyse-resultaat overnemen in de SEO-velden ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['apply_keywords'])) {
+    $fields = [
+        'focus_keyword'  => trim($_POST['focus_keyword'] ?? ''),
+        'extra_keywords' => trim($_POST['extra_keywords'] ?? ''),
+    ];
+    if (trim($_POST['meta_title'] ?? '') !== '')       $fields['meta_title'] = trim($_POST['meta_title']);
+    if (trim($_POST['meta_description'] ?? '') !== '')  $fields['meta_description'] = trim($_POST['meta_description']);
+    if (trim($_POST['target_audience'] ?? '') !== '')   $fields['target_audience'] = trim($_POST['target_audience']);
+    upsertSeo($db, $projectId, $fields);
+    $success = 'Zoekwoorden overgenomen in je SEO-velden.';
+    $seo = loadSeo($db, $projectId);
 }
 
 $checkedItems  = $seo['checklist'] ? (json_decode($seo['checklist'], true) ?: []) : [];
@@ -184,6 +259,8 @@ $hasGen = $headSnippet !== '';
     .seo-checkitem { display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border); }
     .seo-checkitem:last-child { border-bottom:none; }
     .seo-checkitem input { margin-top:3px;flex-shrink:0;width:18px;height:18px;cursor:pointer; }
+    .btn-spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.45);border-top-color:#fff;border-radius:50%;animation:btnspin 0.6s linear infinite;vertical-align:-2px;margin-right:4px; }
+    @keyframes btnspin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -246,6 +323,84 @@ $hasGen = $headSnippet !== '';
           <p style="font-size:0.88rem;color:var(--text-muted);margin-top:4px;">Verzamel reviews, maak een Google Bedrijfsprofiel en voeg regelmatig inhoud toe.</p>
         </div>
       </div>
+    </div>
+
+    <!-- Zoekwoorden-analyse op basis van projectbeschrijving -->
+    <div class="card" style="margin-bottom:24px;">
+      <div class="card-header"><h3 class="card-title">&#128273; Zoekwoorden-analyse</h3></div>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:14px;">
+        Nog geen website om te scannen? Analyseer je <strong>projectbeschrijving</strong> voor zoekwoord-suggesties.
+        <?= aiEnabled() ? 'De AI stelt zoekwoorden, een paginatitel en meta-omschrijving voor.' : 'We halen de meest relevante termen uit je tekst.' ?>
+      </p>
+
+      <?php if ($projectDesc === ''): ?>
+        <div class="alert alert-info" style="margin:0;">
+          &#8505; Er is nog geen projectbeschrijving. Vul die in bij <a href="<?= BASE_PATH ?>/portal/project.php?id=<?= $projectId ?>">je project</a> — dan kunnen we zoekwoorden voorstellen.
+        </div>
+      <?php else: ?>
+        <div style="background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;font-size:0.85rem;color:var(--text-muted);margin-bottom:14px;">
+          <strong style="color:var(--text);">Projectbeschrijving:</strong><br>
+          <?= nl2br(htmlspecialchars(mb_strimwidth($projectDesc, 0, 400, '…'))) ?>
+        </div>
+        <form method="post">
+          <input type="hidden" name="analyze_keywords" value="1">
+          <button type="submit" class="btn btn-primary js-loading-btn" data-loading="Bezig met analyseren…">&#128269; Analyseer zoekwoorden<?= aiEnabled() ? ' met AI' : '' ?></button>
+        </form>
+      <?php endif; ?>
+
+      <?php if ($kwAnalysis): ?>
+        <div class="divider"></div>
+        <?php if ($kwAnalysis['source'] === 'ai'): ?>
+          <form method="post">
+            <input type="hidden" name="apply_keywords" value="1">
+            <div class="form-group">
+              <label class="form-label">Belangrijkste zoekwoord</label>
+              <input type="text" name="focus_keyword" class="form-control" value="<?= htmlspecialchars($kwAnalysis['focus']) ?>">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Extra zoekwoorden</label>
+              <input type="text" name="extra_keywords" class="form-control" value="<?= htmlspecialchars($kwAnalysis['extra']) ?>">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Voorgestelde paginatitel</label>
+              <input type="text" name="meta_title" class="form-control" value="<?= htmlspecialchars($kwAnalysis['meta_title']) ?>">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Voorgestelde meta-omschrijving</label>
+              <textarea name="meta_description" class="form-control" rows="2"><?= htmlspecialchars($kwAnalysis['meta_description']) ?></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Doelgroep</label>
+              <input type="text" name="target_audience" class="form-control" value="<?= htmlspecialchars($kwAnalysis['audience']) ?>">
+            </div>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin:0 0 12px;">&#128161; Controleer en pas aan waar nodig — daarna overnemen in je SEO-velden.</p>
+            <button type="submit" class="btn btn-primary btn-sm">&#10003; Overnemen in mijn SEO-velden</button>
+          </form>
+        <?php else: ?>
+          <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">Gevonden termen in je beschrijving (lokale analyse):</p>
+          <?php if (!empty($kwAnalysis['phrases'])): ?>
+            <div style="margin-bottom:10px;">
+              <?php foreach ($kwAnalysis['phrases'] as $p): ?>
+                <span class="badge" style="background:rgba(108,99,255,0.1);color:var(--primary);margin:0 4px 4px 0;display:inline-block;"><?= htmlspecialchars($p) ?></span>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+          <div style="margin-bottom:14px;">
+            <?php foreach ($kwAnalysis['keywords'] as $k): ?>
+              <span class="badge" style="background:var(--bg-2);border:1px solid var(--border);margin:0 4px 4px 0;display:inline-block;"><?= htmlspecialchars($k) ?></span>
+            <?php endforeach; ?>
+          </div>
+          <form method="post">
+            <input type="hidden" name="apply_keywords" value="1">
+            <input type="hidden" name="focus_keyword" value="<?= htmlspecialchars($kwAnalysis['focus']) ?>">
+            <input type="hidden" name="extra_keywords" value="<?= htmlspecialchars($kwAnalysis['extra']) ?>">
+            <button type="submit" class="btn btn-primary btn-sm">&#10003; Overnemen als zoekwoorden</button>
+          </form>
+          <?php if (!aiEnabled()): ?>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin:10px 0 0;">&#128161; Met AI (OpenAI-sleutel) krijg je bovendien een voorgestelde paginatitel, meta-omschrijving en doelgroep.</p>
+          <?php endif; ?>
+        <?php endif; ?>
+      <?php endif; ?>
     </div>
 
     <!-- Website scan -->
@@ -329,6 +484,9 @@ $hasGen = $headSnippet !== '';
             <label class="form-label">Doelgroep</label>
             <input type="text" name="target_audience" class="form-control" placeholder="Wie zijn je ideale klanten?"
                    value="<?= htmlspecialchars($seo['target_audience']) ?>">
+            <?php if ($audiencePrefilled): ?>
+              <p class="form-hint">&#128161; Overgenomen uit je Social-merkstem. Pas gerust aan.</p>
+            <?php endif; ?>
           </div>
           <div class="form-group">
             <label class="form-label">Paginatitel (meta title)</label>
@@ -425,6 +583,17 @@ $hasGen = $headSnippet !== '';
   }
   bindCount('meta_title', 'title_count', 30, 60);
   bindCount('meta_description', 'desc_count', 120, 160);
+
+  // Laadindicator op knoppen met .js-loading-btn (analyze_keywords zit in een verborgen veld,
+  // dus de knop mag veilig worden uitgeschakeld).
+  document.querySelectorAll('.js-loading-btn').forEach(function (btn) {
+    var f = btn.closest('form');
+    if (!f) return;
+    f.addEventListener('submit', function () {
+      btn.innerHTML = '<span class="btn-spinner"></span> ' + (btn.dataset.loading || 'Bezig…');
+      btn.disabled = true;
+    });
+  });
 </script>
 </body>
 </html>

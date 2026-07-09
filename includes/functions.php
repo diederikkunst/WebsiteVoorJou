@@ -131,6 +131,138 @@ function saveUpload(array $file, string $subdir): ?string {
 }
 
 /**
+ * Verzamelt de bekende klant-input uit profiel, project, SEO en Social tot één
+ * context, zodat de SEO- en Social-functies elkaars gegevens hergebruiken en de
+ * klant niet steeds hetzelfde hoeft in te vullen.
+ *
+ * Retourneert o.a.: company, website, phone, address, email, audience, keywords,
+ * business, plus de ruwe rijen 'seo' en 'social' (of null).
+ */
+function clientContext(PDO $db, array $project, array $client): array {
+    $seoStmt = $db->prepare('SELECT * FROM project_seo WHERE project_id = ?');
+    $seoStmt->execute([$project['id']]);
+    $seo = $seoStmt->fetch() ?: null;
+
+    $soc = null;
+    try {
+        $socStmt = $db->prepare('SELECT * FROM project_social WHERE project_id = ?');
+        $socStmt->execute([$project['id']]);
+        $soc = $socStmt->fetch() ?: null;
+    } catch (\Throwable $e) {
+        // project_social bestaat mogelijk nog niet (migratie) — geen probleem
+    }
+
+    // Doelgroep: eerst Social, anders SEO
+    $audience = trim($soc['audience'] ?? '') ?: trim($seo['target_audience'] ?? '');
+    // Zoekwoorden: focus + extra uit SEO
+    $keywords = trim(implode(', ', array_filter([
+        trim($seo['focus_keyword'] ?? ''),
+        trim($seo['extra_keywords'] ?? ''),
+    ])));
+
+    return [
+        'company'      => trim($client['name'] ?? '') ?: $project['name'],
+        'website'      => trim($client['website'] ?? ''),
+        'phone'        => trim($client['phone'] ?? ''),
+        'address'      => trim($client['address'] ?? ''),
+        'email'        => trim($client['email'] ?? ''),
+        'audience'     => $audience,
+        'keywords'     => $keywords,
+        'business'     => trim($soc['business'] ?? ''),
+        'project_name' => $project['name'],
+        'project_desc' => trim($project['description'] ?? ''),
+        'seo'          => $seo,
+        'social'       => $soc,
+    ];
+}
+
+/** Is live AI (OpenAI) geconfigureerd? */
+function aiEnabled(): bool {
+    return defined('OPENAI_API_KEY') && OPENAI_API_KEY !== '';
+}
+
+/**
+ * Generieke OpenAI chat-completion via cURL.
+ * Geeft ['ok'=>bool, 'text'=>string, 'error'=>string] terug.
+ */
+function aiComplete(string $systemPrompt, string $userPrompt, float $temperature = 0.7): array {
+    $out = ['ok' => false, 'text' => '', 'error' => ''];
+    if (!aiEnabled()) { $out['error'] = 'Live AI staat uit (geen OPENAI_API_KEY).'; return $out; }
+    if (!function_exists('curl_init')) { $out['error'] = 'curl ontbreekt op de server.'; return $out; }
+
+    $payload = json_encode([
+        'model'       => defined('OPENAI_MODEL') ? OPENAI_MODEL : 'gpt-4o',
+        'messages'    => [
+            ['role' => 'system', 'content' => $systemPrompt],
+            ['role' => 'user',   'content' => $userPrompt],
+        ],
+        'temperature' => $temperature,
+    ]);
+
+    $ch = curl_init('https://api.openai.com/v1/chat/completions');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_TIMEOUT        => 60,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'Authorization: Bearer ' . OPENAI_API_KEY],
+    ]);
+    $resp = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err  = curl_error($ch);
+    curl_close($ch);
+
+    if ($resp === false) { $out['error'] = 'Verbinding met de AI-service mislukt.' . ($err ? ' (' . $err . ')' : ''); return $out; }
+    $data = json_decode($resp, true);
+    if ($code >= 400) { $out['error'] = 'AI-fout: ' . ($data['error']['message'] ?? ('HTTP ' . $code)); return $out; }
+    $text = $data['choices'][0]['message']['content'] ?? '';
+    if ($text === '') { $out['error'] = 'De AI gaf geen tekst terug.'; return $out; }
+    $out['ok'] = true; $out['text'] = trim($text);
+    return $out;
+}
+
+/**
+ * Lokale zoekwoorden-analyse (zonder AI): haalt de meest voorkomende
+ * betekenisvolle woorden en 2-woord-combinaties uit een tekst.
+ * Geeft ['keywords'=>[], 'phrases'=>[]] terug.
+ */
+function seoKeywordsFromText(string $text): array {
+    $stop = [
+        'de','het','een','en','van','op','in','met','voor','die','dat','is','te','aan','ook','als','om',
+        'naar','door','maar','niet','wij','we','je','jij','jou','jouw','ons','onze','uw','u','zij','hij',
+        'ik','er','dan','of','bij','uit','dit','deze','zo','nog','al','wat','wie','waar','hoe','heb','hebben',
+        'heeft','was','worden','wordt','word','zijn','ben','are','the','and','for','you','your','our','with',
+        'kan','kunnen','gaan','gaat','veel','meer','goede','goed','graag','willen','wil','maken','maakt','maak',
+        'over','per','tot','geen','wel','via','onder','tussen','zoals','omdat','zodat','deze','dat','mijn',
+    ];
+    $stop = array_flip($stop);
+
+    $clean  = mb_strtolower(preg_replace('/[^\p{L}\s]+/u', ' ', $text));
+    $tokens = preg_split('/\s+/u', trim($clean), -1, PREG_SPLIT_NO_EMPTY);
+
+    $freq = [];
+    foreach ($tokens as $w) {
+        if (mb_strlen($w) < 4 || isset($stop[$w])) continue;
+        $freq[$w] = ($freq[$w] ?? 0) + 1;
+    }
+    arsort($freq);
+    $keywords = array_slice(array_keys($freq), 0, 12);
+
+    // 2-woord-combinaties waar beide woorden geen stopwoord zijn
+    $pairFreq = [];
+    for ($i = 0; $i < count($tokens) - 1; $i++) {
+        $a = $tokens[$i]; $b = $tokens[$i + 1];
+        if (mb_strlen($a) < 4 || mb_strlen($b) < 4 || isset($stop[$a]) || isset($stop[$b])) continue;
+        $p = $a . ' ' . $b;
+        $pairFreq[$p] = ($pairFreq[$p] ?? 0) + 1;
+    }
+    arsort($pairFreq);
+    $phrases = array_slice(array_keys($pairFreq), 0, 6);
+
+    return ['keywords' => $keywords, 'phrases' => $phrases];
+}
+
+/**
  * SEO-checklist: gedeelde definitie (key => label) voor portal en admin.
  */
 function seoChecklistItems(): array {
@@ -480,6 +612,61 @@ function sendVerificationEmail(string $email, string $name, string $token): void
 </body></html>';
 
     sendMail($email, 'Bevestig je account — WebsiteVoorJou', $html, $name, 'accountbevestiging');
+}
+
+function sendPasswordResetEmail(string $email, string $name, string $token): void {
+    $resetUrl  = APP_URL . '/reset-password.php?token=' . $token;
+    $firstName = explode(' ', $name)[0];
+
+    $html = '<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:\'Inter\',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:40px 0;">
+<tr><td align="center">
+<table width="580" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  <tr>
+    <td style="background:linear-gradient(135deg,#6C63FF 0%,#00D4FF 100%);padding:40px 48px;text-align:center;">
+      <div style="font-size:2rem;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">WebsiteVoorJou</div>
+      <div style="color:rgba(255,255,255,0.8);margin-top:8px;font-size:0.95rem;">Wachtwoord opnieuw instellen</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:48px;">
+      <h2 style="margin:0 0 16px;color:#111827;font-size:1.5rem;font-weight:700;">Wachtwoord opnieuw instellen</h2>
+      <p style="margin:0 0 16px;color:#4b5563;line-height:1.7;font-size:0.95rem;">Hoi ' . htmlspecialchars($firstName) . ',</p>
+      <p style="margin:0 0 28px;color:#4b5563;line-height:1.7;font-size:0.95rem;">Je hebt gevraagd om je wachtwoord opnieuw in te stellen. Klik op de knop hieronder om een nieuw wachtwoord te kiezen.</p>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td align="center" style="padding:8px 0 36px;">
+            <a href="' . $resetUrl . '" style="display:inline-block;background:linear-gradient(135deg,#6C63FF,#00D4FF);color:#ffffff;text-decoration:none;padding:16px 48px;border-radius:10px;font-weight:700;font-size:1rem;letter-spacing:0.3px;">
+              Nieuw wachtwoord instellen &#8594;
+            </a>
+          </td>
+        </tr>
+      </table>
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="background:#f8f7ff;border:1px solid #e5e3ff;border-radius:10px;padding:20px 24px;">
+            <p style="margin:0 0 8px;font-size:0.85rem;color:#6b7280;">Werkt de knop niet? Kopieer dan deze link:</p>
+            <p style="margin:0;font-size:0.8rem;color:#6C63FF;word-break:break-all;">' . $resetUrl . '</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:28px 0 0;color:#9ca3af;font-size:0.82rem;line-height:1.6;">
+        Deze link is 1 uur geldig. Heb jij geen reset aangevraagd? Dan kun je deze e-mail veilig negeren — je wachtwoord blijft ongewijzigd.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:24px 48px;text-align:center;">
+      <p style="margin:0;font-size:0.8rem;color:#9ca3af;">WebsiteVoorJou &bull; info@websitevoorjou.nl &bull; websitevoorjou.nl</p>
+    </td>
+  </tr>
+</table>
+</td></tr>
+</table>
+</body></html>';
+
+    sendMail($email, 'Wachtwoord opnieuw instellen — WebsiteVoorJou', $html, $name, 'wachtwoord_reset');
 }
 
 function logEmail(string $to, string $toName, string $subject, string $type, string $status): void {
