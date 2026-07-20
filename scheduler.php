@@ -13,15 +13,22 @@
  * Een lockbestand voorkomt dubbele verwerking bij overlappende runs.
  */
 
-if (PHP_SAPI !== 'cli') {
-    http_response_code(403);
-    exit("Dit script draait alleen via de command line.\n");
-}
-
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/functions.php';
 require_once __DIR__ . '/includes/social.php';
+
+$isCli = (PHP_SAPI === 'cli');
+
+// Via een browser/URL: alleen toegestaan met de juiste geheime sleutel.
+if (!$isCli) {
+    header('Content-Type: text/plain; charset=utf-8');
+    $key = defined('SCHEDULER_KEY') ? SCHEDULER_KEY : '';
+    if ($key === '' || !isset($_GET['key']) || !hash_equals($key, (string)$_GET['key'])) {
+        http_response_code(403);
+        exit("Geen toegang. Stel SCHEDULER_KEY in de config in en roep aan met ?key=...\n");
+    }
+}
 
 $stamp = date('Y-m-d H:i:s');
 

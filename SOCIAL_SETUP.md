@@ -175,10 +175,31 @@ Periodiek laten draaien (elke 5 minuten):
 */5 * * * * php /pad/naar/WebsiteVoorJou/scheduler.php >> /pad/naar/WebsiteVoorJou/storage/scheduler.log 2>&1
 ```
 
+**Plesk** (jouw host) → *Websites & Domains → Scheduled Tasks → Add Task*
+- Type: **Run a command** (of "Run a PHP script")
+- Command: `php /var/www/vhosts/websitevoorjou.nl/httpdocs/scheduler.php`
+- Interval: elke 5 minuten (`*/5 * * * *`)
+
 Een lockbestand (`storage/scheduler.lock`) voorkomt dubbele verwerking bij overlappende runs.
 
-> Op gedeelde hosting (mijndomein) zijn cron-mogelijkheden soms beperkt — controleer in het
-> hostingpaneel of je een cronjob mag instellen, of draai de scheduler vanaf een eigen server.
+### Alternatief: aanroepen via een URL (geen CLI-cron nodig)
+
+Werkt CLI-cron niet, of wil je Plesk's *"Fetch a URL"* of een externe cron-dienst (bijv.
+cron-job.org) gebruiken? Dan kan de scheduler ook via een beveiligde URL:
+
+1. Zet een geheime sleutel in `config.local.php` (lokaal) of `config.secret.php` (productie):
+   ```php
+   define('SCHEDULER_KEY', 'kies-hier-een-lang-willekeurig-geheim');
+   ```
+2. Laat elke 5 minuten deze URL ophalen:
+   ```
+   https://websitevoorjou.nl/scheduler.php?key=kies-hier-een-lang-willekeurig-geheim
+   ```
+
+Zonder geldige `key` weigert het script (403). Zonder ingestelde `SCHEDULER_KEY` is de URL-route
+volledig geblokkeerd en werkt alleen de command line.
+
+> Deel de URL met sleutel niet publiek. Gebruik HTTPS (zodat de sleutel versleuteld gaat).
 
 ---
 
